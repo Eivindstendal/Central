@@ -22,5 +22,3 @@
 .\_build\crc16.o: C:\Keil_v5\ARM\PACK\NordicSemiconductor\nRF_DeviceFamilyPack\8.11.1\Device\Include\nrf51_to_nrf52.h
 .\_build\crc16.o: C:\Keil_v5\ARM\PACK\NordicSemiconductor\nRF_DeviceFamilyPack\8.11.1\Device\Include\nrf52_name_change.h
 .\_build\crc16.o: ..\..\..\..\..\..\components\libraries\util\sdk_macros.h
-.\_build\crc16.o: ..\..\..\..\..\..\components\libraries\crc16\crc16.h
-.\_build\crc16.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h

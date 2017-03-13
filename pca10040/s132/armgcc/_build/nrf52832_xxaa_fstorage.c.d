@@ -41,14 +41,7 @@ _build/nrf52832_xxaa_fstorage.c.o: \
  ../../../../../../components/device/nrf51_to_nrf52.h \
  ../../../../../../components/device/nrf52_name_change.h \
  ../../../../../../components/device/compiler_abstraction.h \
- ../../../../../../components/libraries/util/sdk_macros.h \
- ../../../../../../components/libraries/fstorage/fstorage.h \
- ../../../../../../components/libraries/experimental_section_vars/section_vars.h \
- ../../../../../../components/libraries/fstorage/fstorage_internal_defs.h \
- ../../../../../../components/softdevice/s132/headers/nrf_soc.h \
- ../../../../../../components/softdevice/s132/headers/nrf_svc.h \
- ../../../../../../components/softdevice/s132/headers/nrf_error_soc.h \
- ../../../../../../components/softdevice/s132/headers/nrf_error.h
+ ../../../../../../components/libraries/util/sdk_macros.h
 
 ../../../../../../components/libraries/util/sdk_common.h:
 
@@ -133,17 +126,3 @@ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi
 ../../../../../../components/device/compiler_abstraction.h:
 
 ../../../../../../components/libraries/util/sdk_macros.h:
-
-../../../../../../components/libraries/fstorage/fstorage.h:
-
-../../../../../../components/libraries/experimental_section_vars/section_vars.h:
-
-../../../../../../components/libraries/fstorage/fstorage_internal_defs.h:
-
-../../../../../../components/softdevice/s132/headers/nrf_soc.h:
-
-../../../../../../components/softdevice/s132/headers/nrf_svc.h:
-
-../../../../../../components/softdevice/s132/headers/nrf_error_soc.h:
-
-../../../../../../components/softdevice/s132/headers/nrf_error.h:

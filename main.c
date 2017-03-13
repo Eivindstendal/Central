@@ -52,9 +52,11 @@
 #include "fstorage.h"
 #include "ble_conn_state.h"
 #include "nrf_drv_clock.h"
-#define NRF_LOG_MODULE_NAME "APP"
+#define NRF_LOG_MODULE_NAME "Bachelor"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
+#include "m_bus_receiver.h"
+
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT  1                      /**< Include the Service Changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
 
@@ -66,7 +68,7 @@
 #endif
 
 #define UART_TX_BUF_SIZE        256                             /**< UART TX buffer size. */
-#define UART_RX_BUF_SIZE        256                             /**< UART RX buffer size. */
+#define UART_RX_BUF_SIZE        512                             /**< UART RX buffer size. */
 
 #define NUS_SERVICE_UUID_TYPE   BLE_UUID_TYPE_VENDOR_BEGIN      /**< UUID type for the Nordic UART Service (vendor specific). */
 
@@ -92,9 +94,13 @@ static ble_nus_c_t              m_ble_nus_c;                    /**< Instance of
 static ble_db_discovery_t       m_ble_db_discovery;             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
 
 static SemaphoreHandle_t m_ble_event_ready;  /**< Semaphore raised if there is a new event to be processed in the BLE thread. */
+static SemaphoreHandle_t m_uart_event_ready; //Semaphore raised if there is a new event to be processed in the uart thread
+static SemaphoreHandle_t uart_data;          //Mutex for the uart module. 
 
 static TaskHandle_t m_ble_stack_thread;      /**< Definition of BLE stack thread. */
+static TaskHandle_t m_uart_stack_thread;     //Task for the uart thread.
 static TaskHandle_t m_logger_thread;         /**< Definition of Logger thread. */
+
 
 /**
  * @brief Connection parameters requested for connection.
@@ -163,6 +169,7 @@ static void scan_start(void)
 
     ret = bsp_indication_set(BSP_INDICATE_SCANNING);
     APP_ERROR_CHECK(ret);
+		NRF_LOG_INFO("Uart_c Scan started\r\n");
 }
 
 
@@ -197,17 +204,18 @@ void uart_event_handle(app_uart_evt_t * p_event)
     {
         /**@snippet [Handling data from UART] */
         case APP_UART_DATA_READY:
-            UNUSED_VARIABLE(app_uart_get(&data_array[index]));
-            index++;
+					
+//            UNUSED_VARIABLE(app_uart_get(&data_array[index]));
+//            index++;
 
-            if ((data_array[index - 1] == '\n') || (index >= (BLE_NUS_MAX_DATA_LEN)))
-            {
-                while (ble_nus_c_string_send(&m_ble_nus_c, data_array, index) != NRF_SUCCESS)
-                {
-                    // repeat until sent.
-                }
-                index = 0;
-            }
+//            if ((data_array[index - 1] == '\n') || (index >= (BLE_NUS_MAX_DATA_LEN)))
+//            {
+//                while (ble_nus_c_string_send(&m_ble_nus_c, data_array, index) != NRF_SUCCESS)
+//                {
+//                    // repeat until sent.
+//                }
+//                index = 0;
+//            }
             break;
         /**@snippet [Handling data from UART] */
         case APP_UART_COMMUNICATION_ERROR:
@@ -244,7 +252,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 
             err_code = ble_nus_c_rx_notif_enable(p_ble_nus_c);
             APP_ERROR_CHECK(err_code);
-            printf("The device has the Nordic UART Service\r\n");
+            NRF_LOG_INFO("The device has the Nordic UART Service\r\n");
             break;
 
         case BLE_NUS_C_EVT_NUS_RX_EVT:
@@ -255,7 +263,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
             break;
 
         case BLE_NUS_C_EVT_DISCONNECTED:
-            printf("Disconnected\r\n");
+            NRF_LOG_INFO("Disconnected\r\n");
             scan_start();
             break;
     }
@@ -392,7 +400,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
                     // scan is automatically stopped by the connect
                     err_code = bsp_indication_set(BSP_INDICATE_IDLE);
                     APP_ERROR_CHECK(err_code);
-                    printf("Connecting to target %02x%02x%02x%02x%02x%02x\r\n",
+                    NRF_LOG_INFO("Connecting to target %02x%02x%02x%02x%02x%02x\r\n",
                              p_adv_report->peer_addr.addr[0],
                              p_adv_report->peer_addr.addr[1],
                              p_adv_report->peer_addr.addr[2],
@@ -422,7 +430,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             }
             else if (p_gap_evt->params.timeout.src == BLE_GAP_TIMEOUT_SRC_CONN)
             {
-                printf("Connection Request timed out.\r\n");
+                NRF_LOG_INFO("Connection Request timed out.\r\n");
             }
             break; // BLE_GAP_EVT_TIMEOUT
 
@@ -459,7 +467,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
         case BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST:
             err_code = sd_ble_gatts_exchange_mtu_reply(p_ble_evt->evt.gatts_evt.conn_handle,
                                                        NRF_BLE_MAX_MTU_SIZE);
-            APP_ERROR_CHECK(err_code);
+				APP_ERROR_CHECK(err_code);
             break; // BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST
 #endif
 
@@ -467,6 +475,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             break;
     }
 }
+
 
 /**@brief Function for dispatching a BLE stack event to all modules with a BLE stack event handler.
  *
@@ -521,7 +530,9 @@ static void ble_stack_init(void)
     err_code = softdevice_enable_get_default_config(CENTRAL_LINK_COUNT,
                                                     PERIPHERAL_LINK_COUNT,
                                                     &ble_enable_params);
+		NRF_LOG_FLUSH();
     APP_ERROR_CHECK(err_code);
+		
 
     //Check the ram settings against the used number of links
     CHECK_RAM_START_ADDR(CENTRAL_LINK_COUNT,PERIPHERAL_LINK_COUNT);
@@ -536,6 +547,7 @@ static void ble_stack_init(void)
     // Register with the SoftDevice handler module for BLE events.
     err_code = softdevice_ble_evt_handler_set(ble_evt_dispatch);
     APP_ERROR_CHECK(err_code);
+
 }
 
 /**@brief Function for handling events from the BSP module.
@@ -567,6 +579,7 @@ void bsp_event_handler(bsp_event_t event)
 
 /**@brief Function for initializing the UART.
  */
+
 static void uart_init(void)
 {
     uint32_t err_code;
@@ -577,9 +590,9 @@ static void uart_init(void)
         .tx_pin_no    = TX_PIN_NUMBER,
         .rts_pin_no   = RTS_PIN_NUMBER,
         .cts_pin_no   = CTS_PIN_NUMBER,
-        .flow_control = APP_UART_FLOW_CONTROL_ENABLED,
+        .flow_control = APP_UART_FLOW_CONTROL_DISABLED,
         .use_parity   = false,
-        .baud_rate    = UART_BAUDRATE_BAUDRATE_Baud115200
+        .baud_rate    = UART_BAUDRATE_BAUDRATE_Baud9600
       };
 
     APP_UART_FIFO_INIT(&comm_params,
@@ -638,25 +651,29 @@ static void db_discovery_init(void)
  */
 static void ble_stack_thread(void * arg)
 {
-    //uint32_t err_code;
-	
-    APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, NULL);
-	
-		UNUSED_VARIABLE(arg);
-    uart_init();
-    buttons_leds_init();
-    db_discovery_init();
-    ble_stack_init();
-    nus_c_init();
+  uint32_t err_code;
 
+	APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
+	
+	UNUSED_VARIABLE(arg);
+		
+	uart_init();
+	err_code = NRF_LOG_INIT(NULL);
+	APP_ERROR_CHECK(err_code);
+			
+	buttons_leds_init();
+	db_discovery_init();
+	ble_stack_init();
+	nus_c_init();
+
+
+	
     // Start scanning for peripherals and initiate connection
     // with devices that advertise NUS UUID.
-    //printf("Uart_c Scan started\r\n");
-    scan_start();
+			scan_start();
 
-    //APP_ERROR_CHECK(err_code);
-
-    while (1)
+//    //for(;;)
+		while(1)
     {
         /* Wait for event from SoftDevice */
         while (pdFALSE == xSemaphoreTake(m_ble_event_ready, portMAX_DELAY))
@@ -671,6 +688,17 @@ static void ble_stack_thread(void * arg)
     }
 }
 
+static void uart_stack_thread(void * arg)
+{
+	UNUSED_PARAMETER(arg);
+
+	//for(;;)
+	while(1)
+	{
+		//Do something cool 
+		 vTaskSuspend(NULL);
+	}
+}
 
 #if NRF_LOG_ENABLED
 /**@brief Thread for handling the logger.
@@ -685,8 +713,11 @@ static void logger_thread(void * arg)
 {
     UNUSED_PARAMETER(arg);
 
-    while(1)
+    //for(;;)
+		while(1)
     {
+				NRF_LOG_INFO("HeapSize is: %i\r\n",xPortGetFreeHeapSize());
+			
         NRF_LOG_FLUSH();
 
         vTaskSuspend(NULL); // Suspend myself
@@ -708,12 +739,11 @@ void vApplicationIdleHook( void )
 int main(void)
 {
 	
-	printf("Testing, Testing");
     
-	ret_code_t err_code;
+		ret_code_t err_code;
     err_code = nrf_drv_clock_init();
     APP_ERROR_CHECK(err_code);
-	
+		
     // Do not start any interrupt that uses system functions before system initialisation.
     // The best solution is to start the OS before any other initalisation.
 
@@ -723,33 +753,52 @@ int main(void)
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
-
-    err_code = NRF_LOG_INIT(NULL);
-    APP_ERROR_CHECK(err_code);
-
-    // Start execution.
-    if (pdPASS != xTaskCreate(ble_stack_thread, "BLE", 256, NULL, 2, &m_ble_stack_thread))
+		
+		//Init a semaphore for the Uart thread
+		m_uart_event_ready = xSemaphoreCreateBinary();
+		if (NULL == m_uart_event_ready)
+    {
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
+		
+		//Init a mutex for the uart data module/thread. 
+		uart_data = xSemaphoreCreateMutex();
+		if (NULL == uart_data)
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
 
+
+    // Start execution.
+    if (pdPASS != xTaskCreate(ble_stack_thread, "BLE", 256, NULL, 3, &m_ble_stack_thread))  //This task must always have the highest order
+    {	
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
+		
+		if(pdPASS != xTaskCreate(uart_stack_thread, "UART", 256, NULL, 2, &m_uart_stack_thread))   //Init of the uart thread task
+		{
+			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+		}
+
 #if NRF_LOG_ENABLED
     // Start execution.
-    if (pdPASS != xTaskCreate(logger_thread, "LOGGER", 256, NULL, 1, &m_logger_thread))
+    if (pdPASS != xTaskCreate(logger_thread, "LOGGER", 256, NULL, 1, &m_logger_thread))     //Init of the task to spit out uart. 
     {
-        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
 #endif //NRF_LOG_ENABLED
 
     /* Activate deep sleep mode */
     SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
-
+		
+		
     // Start FreeRTOS scheduler.
     vTaskStartScheduler();
 
-    while (true)
+    //for(;;)
+		while(true)
     {
-        APP_ERROR_HANDLER(NRF_ERROR_FORBIDDEN);
+        APP_ERROR_HANDLER(NRF_ERROR_FORBIDDEN);  //Should not go here
     }
 }
 

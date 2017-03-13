@@ -136,7 +136,8 @@ _build/nrf52832_xxaa_main.c.o: ../../../main.c \
  ../../../../../../components/libraries/log/nrf_log.h \
  ../../../../../../components/libraries/log/src/nrf_log_internal.h \
  ../../../../../../components/libraries/log/nrf_log_ctrl.h \
- ../../../../../../components/libraries/log/src/nrf_log_ctrl_internal.h
+ ../../../../../../components/libraries/log/src/nrf_log_ctrl_internal.h \
+ ../../../m_bus_receiver.h
 
 c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\lib\gcc\arm-none-eabi\5.4.1\include\stdint.h:
 
@@ -413,3 +414,5 @@ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi
 ../../../../../../components/libraries/log/nrf_log_ctrl.h:
 
 ../../../../../../components/libraries/log/src/nrf_log_ctrl_internal.h:
+
+../../../m_bus_receiver.h:

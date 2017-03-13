@@ -41,10 +41,7 @@ _build/nrf52832_xxaa_crc16.c.o: \
  ../../../../../../components/device/nrf51_to_nrf52.h \
  ../../../../../../components/device/nrf52_name_change.h \
  ../../../../../../components/device/compiler_abstraction.h \
- ../../../../../../components/libraries/util/sdk_macros.h \
- ../../../../../../components/libraries/crc16/crc16.h \
- c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\stdlib.h \
- c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\machine\stdlib.h
+ ../../../../../../components/libraries/util/sdk_macros.h
 
 ../../../../../../components/libraries/util/sdk_common.h:
 
@@ -129,9 +126,3 @@ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi
 ../../../../../../components/device/compiler_abstraction.h:
 
 ../../../../../../components/libraries/util/sdk_macros.h:
-
-../../../../../../components/libraries/crc16/crc16.h:
-
-c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\stdlib.h:
-
-c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\machine\stdlib.h:
