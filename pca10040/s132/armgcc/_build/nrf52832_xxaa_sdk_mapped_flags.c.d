@@ -1,74 +1,70 @@
 _build/nrf52832_xxaa_sdk_mapped_flags.c.o: \
- ../../../../../../components/libraries/util/sdk_mapped_flags.c \
- ../../../../../../components/libraries/util/sdk_mapped_flags.h \
- c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\lib\gcc\arm-none-eabi\5.4.1\include\stdint.h \
- c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\stdint.h \
- c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\machine\_default_types.h \
- c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\sys\features.h \
- c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\_newlib_version.h \
- c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\sys\_intsup.h \
- c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\sys\_stdint.h \
- c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\lib\gcc\arm-none-eabi\5.4.1\include\stdbool.h \
- ../../../../../../components/libraries/util/app_util.h \
- ../../../../../../components/device/compiler_abstraction.h \
- ../../../../../../components/device/nrf.h \
- ../../../../../../components/device/nrf52.h \
- ../../../../../../components/toolchain/cmsis/include/core_cm4.h \
- ../../../../../../components/toolchain/cmsis/include/core_cmInstr.h \
- ../../../../../../components/toolchain/cmsis/include/cmsis_gcc.h \
- ../../../../../../components/toolchain/cmsis/include/core_cmFunc.h \
- ../../../../../../components/toolchain/cmsis/include/core_cmSimd.h \
- ../../../../../../components/toolchain/system_nrf52.h \
- ../../../../../../components/device/nrf52_bitfields.h \
- ../../../../../../components/device/nrf51_to_nrf52.h \
- ../../../../../../components/device/nrf52_name_change.h \
- ../../../../../../components/device/compiler_abstraction.h \
- c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\lib\gcc\arm-none-eabi\5.4.1\include\stddef.h
+ c:\sdk\components\libraries\util\sdk_mapped_flags.c \
+ c:\sdk\components\libraries\util\sdk_mapped_flags.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\lib\gcc\arm-none-eabi\4.9.3\include\stdint.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\stdint.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\machine\_default_types.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\sys\features.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\sys\_intsup.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\sys\_stdint.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\lib\gcc\arm-none-eabi\4.9.3\include\stdbool.h \
+ c:\sdk\components\libraries\util\app_util.h \
+ c:\sdk\components\device\compiler_abstraction.h \
+ c:\sdk\components\device\nrf.h c:\sdk\components\device\nrf52.h \
+ c:\sdk\components\toolchain\cmsis\include\core_cm4.h \
+ c:\sdk\components\toolchain\cmsis\include\core_cmInstr.h \
+ c:\sdk\components\toolchain\cmsis\include\cmsis_gcc.h \
+ c:\sdk\components\toolchain\cmsis\include\core_cmFunc.h \
+ c:\sdk\components\toolchain\cmsis\include\core_cmSimd.h \
+ c:\sdk\components\toolchain\system_nrf52.h \
+ c:\sdk\components\device\nrf52_bitfields.h \
+ c:\sdk\components\device\nrf51_to_nrf52.h \
+ c:\sdk\components\device\nrf52_name_change.h \
+ c:\sdk\components\device\compiler_abstraction.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\lib\gcc\arm-none-eabi\4.9.3\include\stddef.h
 
-../../../../../../components/libraries/util/sdk_mapped_flags.h:
+c:\sdk\components\libraries\util\sdk_mapped_flags.h:
 
-c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\lib\gcc\arm-none-eabi\5.4.1\include\stdint.h:
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\lib\gcc\arm-none-eabi\4.9.3\include\stdint.h:
 
-c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\stdint.h:
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\stdint.h:
 
-c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\machine\_default_types.h:
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\machine\_default_types.h:
 
-c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\sys\features.h:
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\sys\features.h:
 
-c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\_newlib_version.h:
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\sys\_intsup.h:
 
-c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\sys\_intsup.h:
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\sys\_stdint.h:
 
-c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\arm-none-eabi\include\sys\_stdint.h:
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\lib\gcc\arm-none-eabi\4.9.3\include\stdbool.h:
 
-c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\lib\gcc\arm-none-eabi\5.4.1\include\stdbool.h:
+c:\sdk\components\libraries\util\app_util.h:
 
-../../../../../../components/libraries/util/app_util.h:
+c:\sdk\components\device\compiler_abstraction.h:
 
-../../../../../../components/device/compiler_abstraction.h:
+c:\sdk\components\device\nrf.h:
 
-../../../../../../components/device/nrf.h:
+c:\sdk\components\device\nrf52.h:
 
-../../../../../../components/device/nrf52.h:
+c:\sdk\components\toolchain\cmsis\include\core_cm4.h:
 
-../../../../../../components/toolchain/cmsis/include/core_cm4.h:
+c:\sdk\components\toolchain\cmsis\include\core_cmInstr.h:
 
-../../../../../../components/toolchain/cmsis/include/core_cmInstr.h:
+c:\sdk\components\toolchain\cmsis\include\cmsis_gcc.h:
 
-../../../../../../components/toolchain/cmsis/include/cmsis_gcc.h:
+c:\sdk\components\toolchain\cmsis\include\core_cmFunc.h:
 
-../../../../../../components/toolchain/cmsis/include/core_cmFunc.h:
+c:\sdk\components\toolchain\cmsis\include\core_cmSimd.h:
 
-../../../../../../components/toolchain/cmsis/include/core_cmSimd.h:
+c:\sdk\components\toolchain\system_nrf52.h:
 
-../../../../../../components/toolchain/system_nrf52.h:
+c:\sdk\components\device\nrf52_bitfields.h:
 
-../../../../../../components/device/nrf52_bitfields.h:
+c:\sdk\components\device\nrf51_to_nrf52.h:
 
-../../../../../../components/device/nrf51_to_nrf52.h:
+c:\sdk\components\device\nrf52_name_change.h:
 
-../../../../../../components/device/nrf52_name_change.h:
+c:\sdk\components\device\compiler_abstraction.h:
 
-../../../../../../components/device/compiler_abstraction.h:
-
-c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\5.4\ 2016q3\bin\lib\gcc\arm-none-eabi\5.4.1\include\stddef.h:
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\lib\gcc\arm-none-eabi\4.9.3\include\stddef.h:

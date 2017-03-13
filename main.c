@@ -197,8 +197,8 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
  */
 void uart_event_handle(app_uart_evt_t * p_event)
 {
-    static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
-    static uint8_t index = 0;
+    //static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
+    //static uint8_t index = 0;
 
     switch (p_event->evt_type)
     {
