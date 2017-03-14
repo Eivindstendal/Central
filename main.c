@@ -62,6 +62,7 @@
 
 #define CENTRAL_LINK_COUNT      1                               /**< Number of central links used by the application. When changing this number remember to adjust the RAM settings*/
 #define PERIPHERAL_LINK_COUNT   0                               /**< Number of peripheral links used by the application. When changing this number remember to adjust the RAM settings*/
+#define TOTAL_LINK_COUNT          CENTRAL_LINK_COUNT + PERIPHERAL_LINK_COUNT /**< Total number of links used by the application. */
 
 #if (NRF_SD_BLE_API_VERSION == 3)
 #define NRF_BLE_MAX_MTU_SIZE    GATT_MTU_SIZE_DEFAULT           /**< MTU size used in the softdevice enabling and to reply to a BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST event. */
@@ -90,8 +91,9 @@
 #define UUID32_SIZE             4                               /**< Size of 32 bit UUID */
 #define UUID128_SIZE            16                              /**< Size of 128 bit UUID */
 
-static ble_nus_c_t              m_ble_nus_c;                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
-static ble_db_discovery_t       m_ble_db_discovery;             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
+static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
+static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
+static uint8_t           		m_ble_nus_c_count;  
 
 static SemaphoreHandle_t m_ble_event_ready;  /**< Semaphore raised if there is a new event to be processed in the BLE thread. */
 static SemaphoreHandle_t m_uart_event_ready; //Semaphore raised if there is a new event to be processed in the uart thread
@@ -130,6 +132,21 @@ static const ble_gap_scan_params_t m_scan_params =
         .use_whitelist = 0,
     #endif
 };
+
+
+typedef struct 
+{
+	uint8_t type;												/**< Type of slave device */
+	uint8_t address;										/**< Address given by central */
+	uint8_t actions;										/**< etc */		
+	uint8_t actions2;										/**< etc */
+	uint8_t temp;												/**< Integer part of extern temp sensor on NRF52 */
+	uint8_t temp_dec;										/**< Fractional part of extern temp semsor on NRF52 */
+	uint8_t priority;										/**< The priority of the slave device */
+}my_data;
+
+my_data slave_data[CENTRAL_LINK_COUNT];
+
 
 /**
  * @brief NUS uuid
@@ -184,7 +201,11 @@ static void scan_start(void)
  */
 static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
 {
-    ble_nus_c_on_db_disc_evt(&m_ble_nus_c, p_evt);
+	NRF_LOG_INFO("call to ble_nus_on_db_disc_evt for instance %d and link 0x%x!\r\n",
+                    p_evt->conn_handle,
+                    p_evt->conn_handle);
+					
+    ble_nus_c_on_db_disc_evt(&m_ble_nus_c[p_evt->conn_handle], p_evt);
 }
 
 
@@ -413,14 +434,64 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
         }break; // BLE_GAP_EVT_ADV_REPORT
 
         case BLE_GAP_EVT_CONNECTED:
+		
+			NRF_LOG_INFO("Connection 0x%x established, starting DB discovery.\r\n",
+                         p_gap_evt->conn_handle);
+		
             //NRF_LOG_DEBUG("Connected to target\r\n");
             err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(err_code);
 
             // start discovery of services. The NUS Client waits for a discovery result
-            err_code = ble_db_discovery_start(&m_ble_db_discovery, p_ble_evt->evt.gap_evt.conn_handle);
+            err_code = ble_db_discovery_start(&m_ble_db_discovery[p_gap_evt->conn_handle],
+                                              p_gap_evt->conn_handle);
             APP_ERROR_CHECK(err_code);
+			
+			if (err_code != NRF_ERROR_BUSY)
+            {
+                APP_ERROR_CHECK(err_code);
+            }
+			
+			if (ble_conn_state_n_centrals() == CENTRAL_LINK_COUNT)
+            {
+                err_code = bsp_indication_set(BSP_INDICATE_IDLE);
+				APP_ERROR_CHECK(err_code);
+            }
+            else
+            {
+                // Resume scanning.
+                err_code = bsp_indication_set(BSP_INDICATE_SCANNING);
+				APP_ERROR_CHECK(err_code);
+                scan_start();
+            }
+			
+			
+			
             break; // BLE_GAP_EVT_CONNECTED
+			
+            
+		case BLE_GAP_EVT_DISCONNECTED:
+        {
+            uint32_t central_link_cnt; // Number of central links.
+
+            NRF_LOG_INFO("LBS central link 0x%x disconnected (reason: 0x%x)\r\n",
+                         p_gap_evt->conn_handle,
+                         p_gap_evt->params.disconnected.reason);
+
+            // Start scanning
+            scan_start();
+
+            // Update LEDs status.
+            err_code = bsp_indication_set(BSP_INDICATE_SCANNING);
+			APP_ERROR_CHECK(err_code);
+			
+            central_link_cnt = ble_conn_state_n_centrals();
+            if (central_link_cnt == 0)
+            {
+                bsp_board_led_off(1);
+            }
+        } 	
+			break;
 
         case BLE_GAP_EVT_TIMEOUT:
             if (p_gap_evt->params.timeout.src == BLE_GAP_TIMEOUT_SRC_SCAN)
@@ -486,10 +557,21 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
  */
 static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 {
+	uint16_t conn_handle;
+	conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+	
+	
     on_ble_evt(p_ble_evt);
     bsp_btn_ble_on_ble_evt(p_ble_evt);
-    ble_db_discovery_on_ble_evt(&m_ble_db_discovery, p_ble_evt);
-    ble_nus_c_on_ble_evt(&m_ble_nus_c,p_ble_evt);
+    	
+	
+	 // Make sure that an invalid connection handle are not passed since
+    // our array of modules is bound to TOTAL_LINK_COUNT.
+    if (conn_handle < TOTAL_LINK_COUNT)
+    {
+        ble_db_discovery_on_ble_evt(&m_ble_db_discovery[conn_handle], p_ble_evt);
+        ble_nus_c_on_ble_evt(&m_ble_nus_c[conn_handle], p_ble_evt);
+    }
 }
 
 /**
@@ -533,7 +615,10 @@ static void ble_stack_init(void)
 		NRF_LOG_FLUSH();
     APP_ERROR_CHECK(err_code);
 		
-
+		
+	 // Use the max config: 8 central, 0 periph, 10 VS UUID
+    //ble_enable_params.common_enable_params.vs_uuid_count = 10;
+	
     //Check the ram settings against the used number of links
     CHECK_RAM_START_ADDR(CENTRAL_LINK_COUNT,PERIPHERAL_LINK_COUNT);
 
@@ -556,7 +641,7 @@ static void ble_stack_init(void)
  */
 void bsp_event_handler(bsp_event_t event)
 {
-    uint32_t err_code;
+    //uint32_t err_code;
     switch (event)
     {
         case BSP_EVENT_SLEEP:
@@ -564,12 +649,13 @@ void bsp_event_handler(bsp_event_t event)
             break;
 
         case BSP_EVENT_DISCONNECT:
-            err_code = sd_ble_gap_disconnect(m_ble_nus_c.conn_handle,
+			printf("Trigger denne?");
+            /* err_code = sd_ble_gap_disconnect(m_ble_nus_c.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             if (err_code != NRF_ERROR_INVALID_STATE)
             {
                 APP_ERROR_CHECK(err_code);
-            }
+            } */
             break;
 
         default:
@@ -613,10 +699,18 @@ static void nus_c_init(void)
     ble_nus_c_init_t nus_c_init_t;
 
     nus_c_init_t.evt_handler = ble_nus_c_evt_handler;
-
-    err_code = ble_nus_c_init(&m_ble_nus_c, &nus_c_init_t);
-    APP_ERROR_CHECK(err_code);
+	
+	
+	for(m_ble_nus_c_count = 0; m_ble_nus_c_count < TOTAL_LINK_COUNT; m_ble_nus_c_count++)
+	{
+		err_code = ble_nus_c_init(&m_ble_nus_c[m_ble_nus_c_count], &nus_c_init_t);
+		APP_ERROR_CHECK(err_code);
+	}
+	m_ble_nus_c_count = 0;
+	
+	
 }
+
 
 /**@brief Function for initializing buttons and leds.
  */
