@@ -60,9 +60,11 @@
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT  1                      /**< Include the Service Changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
 
-#define CENTRAL_LINK_COUNT      1                               /**< Number of central links used by the application. When changing this number remember to adjust the RAM settings*/
+#define CENTRAL_LINK_COUNT      8                               /**< Number of central links used by the application. When changing this number remember to adjust the RAM settings*/
 #define PERIPHERAL_LINK_COUNT   0                               /**< Number of peripheral links used by the application. When changing this number remember to adjust the RAM settings*/
 #define TOTAL_LINK_COUNT          CENTRAL_LINK_COUNT + PERIPHERAL_LINK_COUNT /**< Total number of links used by the application. */
+#define ELEMENTS_IN_MY_DATA_STRUCT		  7
+
 
 #if (NRF_SD_BLE_API_VERSION == 3)
 #define NRF_BLE_MAX_MTU_SIZE    GATT_MTU_SIZE_DEFAULT           /**< MTU size used in the softdevice enabling and to reply to a BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST event. */
@@ -91,6 +93,7 @@
 #define UUID32_SIZE             4                               /**< Size of 32 bit UUID */
 #define UUID128_SIZE            16                              /**< Size of 128 bit UUID */
 
+
 static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
 static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
 static uint8_t           		m_ble_nus_c_count;  
@@ -103,7 +106,7 @@ static TaskHandle_t m_ble_stack_thread;      /**< Definition of BLE stack thread
 static TaskHandle_t m_uart_stack_thread;     //Task for the uart thread.
 static TaskHandle_t m_logger_thread;         /**< Definition of Logger thread. */
 
-
+static uint8_t curr_connection = 0;
 /**
  * @brief Connection parameters requested for connection.
  */
@@ -206,6 +209,7 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
                     p_evt->conn_handle);
 					
     ble_nus_c_on_db_disc_evt(&m_ble_nus_c[p_evt->conn_handle], p_evt);
+	curr_connection = p_evt->conn_handle;
 }
 
 
@@ -253,6 +257,48 @@ void uart_event_handle(app_uart_evt_t * p_event)
 }
 
 
+/**@brief Function to send data over Nordic Uart serial
+ * @param[in]  What slave data to send
+ * @param[out] bool true or false, sending successful not not
+ */
+bool send_data(uint8_t slave_nr)
+{
+		
+	uint8_t data[ELEMENTS_IN_MY_DATA_STRUCT];
+	uint32_t err_code;
+	
+	data[0] = slave_data[slave_nr].type;
+	data[1] = slave_data[slave_nr].address;
+	data[2] = slave_data[slave_nr].actions;
+	data[3] = slave_data[slave_nr].actions2;
+	data[4] = slave_data[slave_nr].temp;
+	data[5] = slave_data[slave_nr].temp_dec;
+	data[6] = slave_data[slave_nr].priority;
+		
+	err_code = ble_nus_c_string_send(&m_ble_nus_c[slave_nr],data,ELEMENTS_IN_MY_DATA_STRUCT);
+	NRF_LOG_INFO("Type som sendes i char: 0x%x\n\r",data[0]);
+	NRF_LOG_INFO("Adresse som sendes i char: 0x%x\n\r",data[1]);
+	NRF_LOG_INFO("etc som sendes i char: 0x%x\n\r",data[2]);
+	NRF_LOG_INFO("etc som sendes i char: 0x%x\n\r",data[3]);
+	NRF_LOG_INFO("temp som sendes i char: 0x%x\n\r",data[4]);
+	NRF_LOG_INFO("temp_dec som sendes i char: 0x%x\n\r",data[5]);
+	NRF_LOG_INFO("prioritet som sendes i char: 0x%x\n\r",data[6]);
+	APP_ERROR_CHECK(err_code);
+	
+	if(err_code == NRF_SUCCESS )
+	{
+			NRF_LOG_INFO("\r sending complete \n");
+			return true;
+	}
+	else
+		{
+			NRF_LOG_INFO(" \r sending not complete \n");
+			
+			return false;
+		}	
+}
+
+
 /**@brief Callback handling NUS Client events.
  *
  * @details This function is called to notify the application of NUS client events.
@@ -265,6 +311,8 @@ void uart_event_handle(app_uart_evt_t * p_event)
 static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt_t * p_ble_nus_evt)
 {
     uint32_t err_code;
+
+	
     switch (p_ble_nus_evt->evt_type)
     {
         case BLE_NUS_C_EVT_DISCOVERY_COMPLETE:
@@ -277,10 +325,21 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
             break;
 
         case BLE_NUS_C_EVT_NUS_RX_EVT:
-            for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++)
-            {
-                while (app_uart_put( p_ble_nus_evt->p_data[i]) != NRF_SUCCESS);
-            }
+            	err_code = bsp_indication_set(BSP_INDICATE_RCV_OK);
+				APP_ERROR_CHECK(err_code);
+					
+						slave_data[curr_connection].type = p_ble_nus_evt->p_data[0]; 
+						slave_data[curr_connection].address = curr_connection;
+						slave_data[curr_connection].actions = p_ble_nus_evt->p_data[2];
+						slave_data[curr_connection].actions2 = p_ble_nus_evt->p_data[3]; 
+						slave_data[curr_connection].temp = p_ble_nus_evt->p_data[4]; 		
+						slave_data[curr_connection].temp_dec = p_ble_nus_evt->p_data[5]; 
+						slave_data[curr_connection].priority = p_ble_nus_evt->p_data[6];
+						
+						NRF_LOG_INFO("Slave address: 0x%02x \n\r",slave_data[curr_connection].address);						
+						
+						send_data(curr_connection);
+								
             break;
 
         case BLE_NUS_C_EVT_DISCONNECTED:
@@ -396,7 +455,7 @@ static bool is_uuid_present(const ble_uuid_t *p_target_uuid,
 
 /**@brief Function for handling the Application's BLE Stack events.
  *
- * @param[in] p_ble_evt  Bluetooth stack event.
+ * @param[in] p_ble_evt  Bluetooth stack event
  */
 static void on_ble_evt(ble_evt_t * p_ble_evt)
 {
@@ -649,7 +708,7 @@ void bsp_event_handler(bsp_event_t event)
             break;
 
         case BSP_EVENT_DISCONNECT:
-			printf("Trigger denne?");
+			
             /* err_code = sd_ble_gap_disconnect(m_ble_nus_c.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             if (err_code != NRF_ERROR_INVALID_STATE)
@@ -764,7 +823,7 @@ static void ble_stack_thread(void * arg)
 	
     // Start scanning for peripherals and initiate connection
     // with devices that advertise NUS UUID.
-			scan_start();
+	scan_start();
 
 //    //for(;;)
 		while(1)
@@ -810,7 +869,7 @@ static void logger_thread(void * arg)
     //for(;;)
 		while(1)
     {
-				NRF_LOG_INFO("HeapSize is: %i\r\n",xPortGetFreeHeapSize());
+				//NRF_LOG_INFO("HeapSize is: %i\r\n",xPortGetFreeHeapSize());
 			
         NRF_LOG_FLUSH();
 
