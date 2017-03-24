@@ -38,7 +38,14 @@ _build/nrf52832_xxaa_fstorage.c.o: \
  c:\sdk\components\device\nrf51_to_nrf52.h \
  c:\sdk\components\device\nrf52_name_change.h \
  c:\sdk\components\device\compiler_abstraction.h \
- c:\sdk\components\libraries\util\sdk_macros.h
+ c:\sdk\components\libraries\util\sdk_macros.h \
+ c:\sdk\components\libraries\fstorage\fstorage.h \
+ c:\sdk\components\libraries\experimental_section_vars\section_vars.h \
+ c:\sdk\components\libraries\fstorage\fstorage_internal_defs.h \
+ c:\sdk\components\softdevice\s132\headers\nrf_soc.h \
+ c:\sdk\components\softdevice\s132\headers\nrf_svc.h \
+ c:\sdk\components\softdevice\s132\headers\nrf_error_soc.h \
+ c:\sdk\components\softdevice\s132\headers\nrf_error.h
 
 c:\sdk\components\libraries\util\sdk_common.h:
 
@@ -121,3 +128,17 @@ c:\sdk\components\device\nrf52_name_change.h:
 c:\sdk\components\device\compiler_abstraction.h:
 
 c:\sdk\components\libraries\util\sdk_macros.h:
+
+c:\sdk\components\libraries\fstorage\fstorage.h:
+
+c:\sdk\components\libraries\experimental_section_vars\section_vars.h:
+
+c:\sdk\components\libraries\fstorage\fstorage_internal_defs.h:
+
+c:\sdk\components\softdevice\s132\headers\nrf_soc.h:
+
+c:\sdk\components\softdevice\s132\headers\nrf_svc.h:
+
+c:\sdk\components\softdevice\s132\headers\nrf_error_soc.h:
+
+c:\sdk\components\softdevice\s132\headers\nrf_error.h:

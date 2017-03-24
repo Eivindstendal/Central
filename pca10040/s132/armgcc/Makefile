@@ -76,6 +76,7 @@ SRC_FILES += \
   $(SDK_ROOT)/components/ble/ble_services/ble_hrs/ble_hrs.c \
   $(SDK_ROOT)/components/ble/ble_db_discovery/ble_db_discovery.c \
   $(SDK_ROOT)/components/ble/ble_services/ble_nus_c/ble_nus_c.c \
+    $(SDK_ROOT)/components/ble/ble_services/ble_nus/ble_nus.c \
   $(SDK_ROOT)/components/softdevice/common/softdevice_handler/softdevice_handler.c \
   $(PROJ_DIR)/m_bus_receiver.c
 

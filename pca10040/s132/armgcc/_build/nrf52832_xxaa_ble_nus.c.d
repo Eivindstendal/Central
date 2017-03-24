@@ -1,5 +1,5 @@
-_build/nrf52832_xxaa_ble_advertising.c.o: \
- c:\sdk\components\ble\ble_advertising\ble_advertising.c \
+_build/nrf52832_xxaa_ble_nus.c.o: \
+ c:\sdk\components\ble\ble_services\ble_nus\ble_nus.c \
  c:\sdk\components\libraries\util\sdk_common.h \
  c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\lib\gcc\arm-none-eabi\4.9.3\include\stdint.h \
  c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\stdint.h \
@@ -39,7 +39,7 @@ _build/nrf52832_xxaa_ble_advertising.c.o: \
  c:\sdk\components\device\nrf52_name_change.h \
  c:\sdk\components\device\compiler_abstraction.h \
  c:\sdk\components\libraries\util\sdk_macros.h \
- c:\sdk\components\ble\common\ble_advdata.h \
+ c:\sdk\components\ble\ble_services\ble_nus\ble_nus.h \
  c:\sdk\components\softdevice\s132\headers\ble.h \
  c:\sdk\components\softdevice\s132\headers\ble_ranges.h \
  c:\sdk\components\softdevice\s132\headers\ble_types.h \
@@ -51,16 +51,11 @@ _build/nrf52832_xxaa_ble_advertising.c.o: \
  c:\sdk\components\softdevice\s132\headers\ble_gatt.h \
  c:\sdk\components\softdevice\s132\headers\ble_gattc.h \
  c:\sdk\components\softdevice\s132\headers\ble_gatts.h \
+ c:\sdk\components\ble\common\ble_srv_common.h \
+ c:\sdk\components\softdevice\s132\headers\ble_types.h \
  c:\sdk\components\libraries\util\app_util.h \
- c:\sdk\components\ble\ble_advertising\ble_advertising.h \
- c:\sdk\components\softdevice\s132\headers\ble_gattc.h \
- c:\sdk\components\softdevice\s132\headers\nrf_soc.h \
- c:\sdk\components\softdevice\s132\headers\nrf_error_soc.h \
- c:\sdk\components\libraries\log\nrf_log.h \
- c:\sdk\components\libraries\log\src\nrf_log_internal.h \
- c:\sdk\components\libraries\fstorage\fstorage.h \
- c:\sdk\components\libraries\experimental_section_vars\section_vars.h \
- c:\sdk\components\libraries\util\sdk_errors.h
+ c:\sdk\components\softdevice\s132\headers\ble_gap.h \
+ c:\sdk\components\softdevice\s132\headers\ble_gatt.h
 
 c:\sdk\components\libraries\util\sdk_common.h:
 
@@ -144,7 +139,7 @@ c:\sdk\components\device\compiler_abstraction.h:
 
 c:\sdk\components\libraries\util\sdk_macros.h:
 
-c:\sdk\components\ble\common\ble_advdata.h:
+c:\sdk\components\ble\ble_services\ble_nus\ble_nus.h:
 
 c:\sdk\components\softdevice\s132\headers\ble.h:
 
@@ -168,22 +163,12 @@ c:\sdk\components\softdevice\s132\headers\ble_gattc.h:
 
 c:\sdk\components\softdevice\s132\headers\ble_gatts.h:
 
+c:\sdk\components\ble\common\ble_srv_common.h:
+
+c:\sdk\components\softdevice\s132\headers\ble_types.h:
+
 c:\sdk\components\libraries\util\app_util.h:
 
-c:\sdk\components\ble\ble_advertising\ble_advertising.h:
+c:\sdk\components\softdevice\s132\headers\ble_gap.h:
 
-c:\sdk\components\softdevice\s132\headers\ble_gattc.h:
-
-c:\sdk\components\softdevice\s132\headers\nrf_soc.h:
-
-c:\sdk\components\softdevice\s132\headers\nrf_error_soc.h:
-
-c:\sdk\components\libraries\log\nrf_log.h:
-
-c:\sdk\components\libraries\log\src\nrf_log_internal.h:
-
-c:\sdk\components\libraries\fstorage\fstorage.h:
-
-c:\sdk\components\libraries\experimental_section_vars\section_vars.h:
-
-c:\sdk\components\libraries\util\sdk_errors.h:
+c:\sdk\components\softdevice\s132\headers\ble_gatt.h:

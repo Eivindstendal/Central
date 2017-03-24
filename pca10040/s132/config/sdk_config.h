@@ -13,7 +13,7 @@
  
 
 #ifndef BLE_ADVERTISING_ENABLED
-#define BLE_ADVERTISING_ENABLED 0
+#define BLE_ADVERTISING_ENABLED 1
 #endif
 
 // <q> BLE_DB_DISCOVERY_ENABLED  - ble_db_discovery - Database discovery module
@@ -40,7 +40,7 @@
 // <e> NRF_BLE_GATT_ENABLED - nrf_ble_gatt - GATT module
 //==========================================================
 #ifndef NRF_BLE_GATT_ENABLED
-#define NRF_BLE_GATT_ENABLED 0
+#define NRF_BLE_GATT_ENABLED 1
 #endif
 #if  NRF_BLE_GATT_ENABLED
 // <o> NRF_BLE_GATT_MAX_MTU_SIZE - Static maximum MTU size that is passed to the @ref sd_ble_enable function. 
@@ -208,7 +208,7 @@
  
 
 #ifndef BLE_NUS_ENABLED
-#define BLE_NUS_ENABLED 0
+#define BLE_NUS_ENABLED 1
 #endif
 
 // <q> BLE_RSCS_C_ENABLED  - ble_rscs_c - Running Speed and Cadence Client
@@ -3231,7 +3231,7 @@
 // <e> FSTORAGE_ENABLED - fstorage - Flash storage module
 //==========================================================
 #ifndef FSTORAGE_ENABLED
-#define FSTORAGE_ENABLED 0
+#define FSTORAGE_ENABLED 1
 //#define FSTORAGE_ENABLED 1
 #endif
 #if  FSTORAGE_ENABLED
