@@ -92,7 +92,9 @@
 #define UUID16_SIZE             2                               /**< Size of 16 bit UUID */
 #define UUID32_SIZE             4                               /**< Size of 32 bit UUID */
 #define UUID128_SIZE            16                              /**< Size of 128 bit UUID */
+#define CLOCK_UPDATE_INT       1000
 
+APP_TIMER_DEF(m_clock_timer);
 
 static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
 static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
@@ -105,6 +107,12 @@ static SemaphoreHandle_t uart_data;          //Mutex for the uart module.
 static TaskHandle_t m_ble_stack_thread;      /**< Definition of BLE stack thread. */
 static TaskHandle_t m_uart_stack_thread;     //Task for the uart thread.
 static TaskHandle_t m_logger_thread;         /**< Definition of Logger thread. */
+
+//Variables for clock
+uint8_t hour = 16;
+uint8_t minutes = 04;
+uint8_t seconds =0;
+
 
 static uint8_t curr_connection = 0;
 /**
@@ -276,13 +284,7 @@ bool send_data(uint8_t slave_nr)
 	data[6] = slave_data[slave_nr].priority;
 		
  	err_code = ble_nus_c_string_send(&m_ble_nus_c[slave_nr],data,ELEMENTS_IN_MY_DATA_STRUCT);
-/*	NRF_LOG_INFO("\n	Type sent:			0x%02x\n\r",data[0]);
-	NRF_LOG_INFO("	Address sent:			0x%02x\n\r",data[1]);
-	NRF_LOG_INFO("	Etc sent:			0x%02x\n\r",data[2]);
-	NRF_LOG_INFO("	Etc sent:			0x%02x\n\r",data[3]);
-	NRF_LOG_INFO("	Temp sent:			0x%02x\n\r",data[4]);
-	NRF_LOG_INFO("	Temp_dec sent:			0x%02x\n\r",data[5]);
-	NRF_LOG_INFO("	Priority sent:			0x%02x\n\n\r",data[6]); */
+
 	APP_ERROR_CHECK(err_code);
 	
 	if(err_code == NRF_SUCCESS )
@@ -306,7 +308,7 @@ void print_slave_data(void)
 {
 	for(int i=0; i<=7;i++)
 	{
-		NRF_LOG_INFO("\n	Type sent:			0x%02x\n\r",slave_data[i].type);
+		NRF_LOG_INFO("	Type sent:			0x%02x\n\r",slave_data[i].type);
 		NRF_LOG_INFO("	Address sent:			0x%02x\n\r",slave_data[i].address);
 		NRF_LOG_INFO("	Etc sent:			0x%02x\n\r",slave_data[i].actions);
 		NRF_LOG_INFO("	Etc sent:			0x%02x\n\r",slave_data[i].actions2);
@@ -819,6 +821,58 @@ static void db_discovery_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+
+/**@brief  Clock to controll time
+ */
+static void update_clock(void)
+{	
+	seconds++;
+	if(60<=seconds)
+	{
+		seconds =0;
+		minutes++;
+		if(60<=minutes)
+		{
+			minutes = 0;
+			hour++;
+			
+			if(24<= hour)
+			{
+				hour = 0;
+			}
+		}	
+		
+	}	
+		
+	NRF_LOG_INFO("The time is: %02d:%02d:%02d \r\n",hour,minutes,seconds);
+	
+}
+
+
+/**@brief  Timeout handler for the repeated timer
+ */
+static void timer_handler(void * p_context)
+{	
+		
+    update_clock();
+	
+}
+
+
+/**@brief Create timers.
+ */
+static void create_timers()
+{   
+    uint32_t err_code;
+	
+    err_code = app_timer_create(&m_clock_timer, APP_TIMER_MODE_REPEATED, timer_handler);
+
+    APP_ERROR_CHECK(err_code);
+}
+
+
+
+
 /**@brief Thread for handling the Application's BLE Stack events.
  *
  * @details This thread is responsible for handling BLE Stack events sent from on_ble_evt().
@@ -834,6 +888,12 @@ static void ble_stack_thread(void * arg)
 	
 	UNUSED_VARIABLE(arg);
 		
+	//Timer_clock	
+	create_timers();
+	err_code = app_timer_start(m_clock_timer, 
+											 APP_TIMER_TICKS(CLOCK_UPDATE_INT, 
+											 APP_TIMER_PRESCALER),
+															NULL);
 	uart_init();
 	err_code = NRF_LOG_INIT(NULL);
 	APP_ERROR_CHECK(err_code);
