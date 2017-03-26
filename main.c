@@ -93,8 +93,11 @@
 #define UUID32_SIZE             4                               /**< Size of 32 bit UUID */
 #define UUID128_SIZE            16                              /**< Size of 128 bit UUID */
 #define CLOCK_UPDATE_INT       1000
+#define ACK_WAIT_INTERVAL      3000														
+
 
 APP_TIMER_DEF(m_clock_timer);
+APP_TIMER_DEF(ack_timer);
 
 static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
 static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
@@ -109,9 +112,11 @@ static TaskHandle_t m_uart_stack_thread;     //Task for the uart thread.
 static TaskHandle_t m_logger_thread;         /**< Definition of Logger thread. */
 
 //Variables for clock
-uint8_t hour = 16;
-uint8_t minutes = 04;
+uint8_t hour = 10;
+uint8_t minutes = 36;
 uint8_t seconds =0;
+
+bool waiting_ack[CENTRAL_LINK_COUNT];
 
 
 static uint8_t curr_connection = 0;
@@ -149,10 +154,10 @@ typedef struct
 {
 	uint8_t type;												/**< Type of slave device */
 	uint8_t address;										/**< Address given by central */
-	uint8_t actions;										/**< etc */		
-	uint8_t actions2;										/**< etc */
-	uint8_t temp;												/**< Integer part of extern temp sensor on NRF52 */
-	uint8_t temp_dec;										/**< Fractional part of extern temp semsor on NRF52 */
+	uint8_t ack;										/**< etc */		
+	uint8_t state;										/**< etc */
+	uint8_t wanted_temp;												/**< Integer part of extern temp sensor on NRF52 */
+	uint8_t current_temp;										/**< Fractional part of extern temp semsor on NRF52 */
 	uint8_t priority;										/**< The priority of the slave device */
 }my_data;
 
@@ -230,25 +235,13 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
  */
 void uart_event_handle(app_uart_evt_t * p_event)
 {
-    //static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
-    //static uint8_t index = 0;
+   
 
     switch (p_event->evt_type)
     {
         /**@snippet [Handling data from UART] */
         case APP_UART_DATA_READY:
-					
-//            UNUSED_VARIABLE(app_uart_get(&data_array[index]));
-//            index++;
-
-//            if ((data_array[index - 1] == '\n') || (index >= (BLE_NUS_MAX_DATA_LEN)))
-//            {
-//                while (ble_nus_c_string_send(&m_ble_nus_c, data_array, index) != NRF_SUCCESS)
-//                {
-//                    // repeat until sent.
-//                }
-//                index = 0;
-//            }
+							
             break;
         /**@snippet [Handling data from UART] */
         case APP_UART_COMMUNICATION_ERROR:
@@ -277,19 +270,29 @@ bool send_data(uint8_t slave_nr)
 	
 	data[0] = slave_data[slave_nr].type;
 	data[1] = slave_data[slave_nr].address;
-	data[2] = slave_data[slave_nr].actions;
-	data[3] = slave_data[slave_nr].actions2;
-	data[4] = slave_data[slave_nr].temp;
-	data[5] = slave_data[slave_nr].temp_dec;
+	data[2] = 0;
+	data[3] = slave_data[slave_nr].state;
+	data[4] = slave_data[slave_nr].wanted_temp;
+	data[5] = slave_data[slave_nr].current_temp;
 	data[6] = slave_data[slave_nr].priority;
-		
- 	err_code = ble_nus_c_string_send(&m_ble_nus_c[slave_nr],data,ELEMENTS_IN_MY_DATA_STRUCT);
-
-	APP_ERROR_CHECK(err_code);
+	
+	if(false == waiting_ack[slave_nr])
+	{		
+		NRF_LOG_INFO("	Sending not complete, waiting on ack\r\n");
+		return false;
+	}
+			err_code = ble_nus_c_string_send(&m_ble_nus_c[slave_nr],data,ELEMENTS_IN_MY_DATA_STRUCT);
+			APP_ERROR_CHECK(err_code);
+	
 	
 	if(err_code == NRF_SUCCESS )
 	{
 			NRF_LOG_INFO("	sending complete \n\r");
+					waiting_ack[slave_nr]= true;
+					err_code = app_timer_start(ack_timer, 
+															 APP_TIMER_TICKS(ACK_WAIT_INTERVAL, 
+															 APP_TIMER_PRESCALER),
+																			NULL);
 			return true;
 	}
 	else
@@ -300,20 +303,54 @@ bool send_data(uint8_t slave_nr)
 		}	
 }
 
+
+/**@brief Function to send ack over Nordic Uart serial
+ * @param[in]  What slave data to send
+ * @param[out] bool true or false, sending successful not not
+ */
+bool send_ack(uint8_t slave_nr)
+{
+	uint8_t data[ELEMENTS_IN_MY_DATA_STRUCT];
+	uint32_t err_code;
+	
+	data[0] = slave_data[slave_nr].type;
+	data[1] = slave_data[slave_nr].address;
+	data[2] = 1;
+	data[3] = slave_data[slave_nr].state;
+	data[4] = slave_data[slave_nr].wanted_temp;
+	data[5] = slave_data[slave_nr].current_temp;
+	data[6] = slave_data[slave_nr].priority;
+
+			err_code = ble_nus_c_string_send(&m_ble_nus_c[slave_nr],data,ELEMENTS_IN_MY_DATA_STRUCT);
+			APP_ERROR_CHECK(err_code);
+	
+	if(err_code == NRF_SUCCESS )
+	{
+			NRF_LOG_INFO("	ack sent \n\r");		
+			return true;
+	}
+	else
+		{
+			NRF_LOG_INFO("	ack failed \n\r");			
+			return false;
+		}	
+}
+
+
 /**@brief Function to print data to slaves
  * 
  *  
  */
 void print_slave_data(void)
 {
-	for(int i=0; i<=7;i++)
+	for(int i=0; i<=1;i++)
 	{
 		NRF_LOG_INFO("	Type sent:			0x%02x\n\r",slave_data[i].type);
 		NRF_LOG_INFO("	Address sent:			0x%02x\n\r",slave_data[i].address);
-		NRF_LOG_INFO("	Etc sent:			0x%02x\n\r",slave_data[i].actions);
-		NRF_LOG_INFO("	Etc sent:			0x%02x\n\r",slave_data[i].actions2);
-		NRF_LOG_INFO("	Temp sent:			0x%02x\n\r",slave_data[i].temp);
-		NRF_LOG_INFO("	Temp_dec sent:			0x%02x\n\r",slave_data[i].temp_dec);
+		NRF_LOG_INFO("	ack:				0x%02x\n\r",slave_data[i].ack);
+		NRF_LOG_INFO("	state:				0x%02x\n\r",slave_data[i].state);
+		NRF_LOG_INFO("	Wanted_temp:			0x%02x\n\r",slave_data[i].wanted_temp);
+		NRF_LOG_INFO("	Current_temp:			0x%02x\n\r",slave_data[i].current_temp);
 		NRF_LOG_INFO("	Priority sent:			0x%02x\n\n\r",slave_data[i].priority);
 	}
  
@@ -343,23 +380,37 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
             err_code = ble_nus_c_rx_notif_enable(p_ble_nus_c);
             APP_ERROR_CHECK(err_code);
             NRF_LOG_INFO("	The device has the Nordic UART Service\r\n");
+						
             break;
 
         case BLE_NUS_C_EVT_NUS_RX_EVT:
             	err_code = bsp_indication_set(BSP_INDICATE_RCV_OK);
-				APP_ERROR_CHECK(err_code);
-					if(0x00 != p_ble_nus_evt->p_data[0])
+							APP_ERROR_CHECK(err_code);
+					if('B' == p_ble_nus_evt->p_data[0]||
+																							'b' == p_ble_nus_evt->p_data[0]||
+																							'C' == p_ble_nus_evt->p_data[0]||
+																							'c' == p_ble_nus_evt->p_data[0])
 					{
 						slave_data[curr_connection].type = p_ble_nus_evt->p_data[0]; 
 						slave_data[curr_connection].address = curr_connection;
-						slave_data[curr_connection].actions = p_ble_nus_evt->p_data[2];
-						slave_data[curr_connection].actions2 = p_ble_nus_evt->p_data[3]; 
-						slave_data[curr_connection].temp = p_ble_nus_evt->p_data[4]; 		
-						slave_data[curr_connection].temp_dec = p_ble_nus_evt->p_data[5]; 
+						slave_data[curr_connection].ack = p_ble_nus_evt->p_data[2];
+						slave_data[curr_connection].state = p_ble_nus_evt->p_data[3]; 
+						//slave_data[curr_connection].wanted_temp = p_ble_nus_evt->p_data[4]; 		
+						slave_data[curr_connection].current_temp = p_ble_nus_evt->p_data[5]; 
 						slave_data[curr_connection].priority = p_ble_nus_evt->p_data[6];
-					}
-						send_data(curr_connection);
-					
+						
+						
+						if(0 == p_ble_nus_evt->p_data[2])
+						{
+							send_ack(curr_connection);
+														
+						}else if(1== p_ble_nus_evt->p_data[2])
+						{
+							NRF_LOG_INFO("ack recieved \r\n");
+							app_timer_stop(ack_timer);
+							waiting_ack[curr_connection] = false;
+						}
+					}					
 						print_slave_data();
 								
             break;
@@ -829,8 +880,10 @@ static void update_clock(void)
 	seconds++;
 	if(60<=seconds)
 	{
+		//send_data(curr_connection);
 		seconds =0;
 		minutes++;
+		print_slave_data();
 		if(60<=minutes)
 		{
 			minutes = 0;
@@ -841,11 +894,9 @@ static void update_clock(void)
 				hour = 0;
 			}
 		}	
-		
-	}	
-		
-	NRF_LOG_INFO("The time is: %02d:%02d:%02d \r\n",hour,minutes,seconds);
-	
+		NRF_LOG_INFO("The time is: %02d:%02d \r\n",hour,minutes);
+
+	}		
 }
 
 
@@ -858,6 +909,15 @@ static void timer_handler(void * p_context)
 	
 }
 
+/**@brief  Timeout handler for the ack timer
+ */
+static void ack_timer_handler(void * p_context)
+{	
+	for(int i =0; i<=PERIPHERAL_LINK_COUNT;i++ )
+		if(true == waiting_ack[i])
+			send_data(i);
+}
+
 
 /**@brief Create timers.
  */
@@ -866,8 +926,10 @@ static void create_timers()
     uint32_t err_code;
 	
     err_code = app_timer_create(&m_clock_timer, APP_TIMER_MODE_REPEATED, timer_handler);
+		APP_ERROR_CHECK(err_code);
+		err_code = app_timer_create(&ack_timer, APP_TIMER_MODE_SINGLE_SHOT,ack_timer_handler);
+		APP_ERROR_CHECK(err_code);
 
-    APP_ERROR_CHECK(err_code);
 }
 
 
@@ -888,6 +950,7 @@ static void ble_stack_thread(void * arg)
 	
 	UNUSED_VARIABLE(arg);
 		
+	
 	//Timer_clock	
 	create_timers();
 	err_code = app_timer_start(m_clock_timer, 
@@ -976,7 +1039,8 @@ void vApplicationIdleHook( void )
 int main(void)
 {
 	
-    
+
+	
 		ret_code_t err_code;
     err_code = nrf_drv_clock_init();
     APP_ERROR_CHECK(err_code);

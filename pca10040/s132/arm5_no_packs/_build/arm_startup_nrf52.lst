@@ -667,28 +667,27 @@ oftdevice\common\softdevice_handler -I..\..\..\..\..\..\components\softdevice\s
 .\..\..\..\..\components\toolchain -I..\..\..\..\..\..\external\freertos\config
  -I..\..\..\..\..\..\external\freertos\portable\ARM\nrf52 -I..\..\..\..\..\..\e
 xternal\freertos\portable\CMSIS\nrf52 -I..\..\..\..\..\..\external\freertos\sou
-rce\include -I..\..\..\..\..\..\external\segger_rtt -I..\config -I"D:\Programmi
-ng\nRF5_SDK_12.2.0_f012efa\examples\ble_peripheral\ble_freertos_bachelor - Work
-ing fine only BLE\pca10040\s132\arm5_no_packs\RTE" -IC:\Keil_v5\ARM\PACK\ARM\CM
-SIS\4.5.0\CMSIS\Include -IC:\Keil_v5\ARM\PACK\NordicSemiconductor\nRF_DeviceFam
-ilyPack\8.11.1\Device\Include --predefine="__EVAL SETA 1" --predefine="__MICROL
-IB SETA 1" --predefine="__UVISION_VERSION SETA 520" --predefine="_RTE_ SETA 1" 
---predefine="NRF52 SETA 1" --predefine="BLE_STACK_SUPPORT_REQD SETA 1" --predef
-ine="__STACK_SIZE SETA 2048" --predefine="__HEAP_SIZE SETA 1024" --predefine="S
-132 SETA 1" --predefine="NRF_SD_BLE_API_VERSION SETA 3" --predefine="BOARD_PCA1
-0040 SETA 1" --predefine="NRF52_PAN_12 SETA 1" --predefine="NRF52_PAN_15 SETA 1
-" --predefine="NRF52_PAN_20 SETA 1" --predefine="NRF52_PAN_31 SETA 1" --predefi
-ne="CONFIG_GPIO_AS_PINRESET SETA 1" --predefine="NRF52_PAN_36 SETA 1" --predefi
-ne="NRF52_PAN_51 SETA 1" --predefine="NRF52_PAN_54 SETA 1" --predefine="NRF52_P
-AN_55 SETA 1" --predefine="NRF52_PAN_58 SETA 1" --predefine="NRF52_PAN_64 SETA 
-1" --predefine="SOFTDEVICE_PRESENT SETA 1" --predefine="NRF52832 SETA 1" --pred
-efine="NRF52 SETA 1" --predefine="FREERTOS SETA 1" --cpreproc_opts=-DBLE_STACK_
-SUPPORT_REQD,-D__STACK_SIZE=2048,-D__HEAP_SIZE=1024,-DS132,-DNRF_SD_BLE_API_VER
-SION=3,-DBOARD_PCA10040,-DNRF52_PAN_12,-DNRF52_PAN_15,-DNRF52_PAN_20,-DNRF52_PA
-N_31,-DCONFIG_GPIO_AS_PINRESET,-DNRF52_PAN_36,-DNRF52_PAN_51,-DNRF52_PAN_54,-DN
-RF52_PAN_55,-DNRF52_PAN_58,-DNRF52_PAN_64,-DSOFTDEVICE_PRESENT,-DNRF52832,-DNRF
-52,-DFREERTOS --list=.\_build\arm_startup_nrf52.lst RTE\Device\nRF52832_xxAA\ar
-m_startup_nrf52.s
+rce\include -I..\..\..\..\..\..\external\segger_rtt -I..\config -IC:\SDK\exampl
+es\ble_peripheral\Central\pca10040\s132\arm5_no_packs\RTE -IC:\Keil_v5\ARM\PACK
+\ARM\CMSIS\4.5.0\CMSIS\Include -IC:\Keil_v5\ARM\PACK\NordicSemiconductor\nRF_De
+viceFamilyPack\8.11.1\Device\Include --predefine="__EVAL SETA 1" --predefine="_
+_MICROLIB SETA 1" --predefine="__UVISION_VERSION SETA 520" --predefine="_RTE_ S
+ETA 1" --predefine="NRF52 SETA 1" --predefine="BLE_STACK_SUPPORT_REQD SETA 1" -
+-predefine="__STACK_SIZE SETA 2048" --predefine="__HEAP_SIZE SETA 1024" --prede
+fine="S132 SETA 1" --predefine="NRF_SD_BLE_API_VERSION SETA 3" --predefine="BOA
+RD_PCA10040 SETA 1" --predefine="NRF52_PAN_12 SETA 1" --predefine="NRF52_PAN_15
+ SETA 1" --predefine="NRF52_PAN_20 SETA 1" --predefine="NRF52_PAN_31 SETA 1" --
+predefine="CONFIG_GPIO_AS_PINRESET SETA 1" --predefine="NRF52_PAN_36 SETA 1" --
+predefine="NRF52_PAN_51 SETA 1" --predefine="NRF52_PAN_54 SETA 1" --predefine="
+NRF52_PAN_55 SETA 1" --predefine="NRF52_PAN_58 SETA 1" --predefine="NRF52_PAN_6
+4 SETA 1" --predefine="SOFTDEVICE_PRESENT SETA 1" --predefine="NRF52832 SETA 1"
+ --predefine="NRF52 SETA 1" --predefine="FREERTOS SETA 1" --cpreproc_opts=-DBLE
+_STACK_SUPPORT_REQD,-D__STACK_SIZE=2048,-D__HEAP_SIZE=1024,-DS132,-DNRF_SD_BLE_
+API_VERSION=3,-DBOARD_PCA10040,-DNRF52_PAN_12,-DNRF52_PAN_15,-DNRF52_PAN_20,-DN
+RF52_PAN_31,-DCONFIG_GPIO_AS_PINRESET,-DNRF52_PAN_36,-DNRF52_PAN_51,-DNRF52_PAN
+_54,-DNRF52_PAN_55,-DNRF52_PAN_58,-DNRF52_PAN_64,-DSOFTDEVICE_PRESENT,-DNRF5283
+2,-DNRF52,-DFREERTOS --list=.\_build\arm_startup_nrf52.lst RTE\Device\nRF52832_
+xxAA\arm_startup_nrf52.s
 
 
 
