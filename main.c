@@ -834,8 +834,6 @@ void bsp_event_handler(bsp_event_t event)
             break;
 		case BSP_EVENT_KEY_1:
 		
-			
-			
 			break;
         default:
             break;
@@ -1074,7 +1072,7 @@ static void uart_stack_thread(void * arg)
 	static uint8_t data_array[62];
 	static uint8_t counter = 0;
 	static uart_event_states m_uart_event_states = START_UP;
-	static uart_event_states last_m_uart_event_state = START_UP;
+	static last_uart_event_states last_m_uart_event_state = LAST_START_UP;
  	
 	while(1)
 	{
@@ -1082,7 +1080,7 @@ static void uart_stack_thread(void * arg)
 		switch(m_uart_event_states)
 		{
 			case START_UP: //Resetting the device. Start up state. 
-				if(xSemaphoreTake(uart_mutex_tx, portMAX_DELAY ) == pdTRUE)
+				if(xSemaphoreTake(uart_mutex_tx, 100 ) == pdTRUE)
 				{
 						m_bus_receiver_reset_application(A_FIELD); //Initialice the m-bus receiver
 						if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
@@ -1091,7 +1089,7 @@ static void uart_stack_thread(void * arg)
                 // obtained the semaphore to get here.
 						}
 						m_uart_event_states = WAITING_RESPONSE_STATE;
-						last_m_uart_event_state = START_UP;
+						last_m_uart_event_state = LAST_START_UP;
 				}
 				
 				else
@@ -1102,7 +1100,7 @@ static void uart_stack_thread(void * arg)
 			
 			case INIT_M_BUS_STATE:
 				
-				if(xSemaphoreTake(uart_mutex_tx, portMAX_DELAY) == pdTRUE)
+				if(xSemaphoreTake(uart_mutex_tx, 100) == pdTRUE)
 				{
 						m_bus_receiver_init(A_FIELD); //Initialice the m-bus receiver
 						
@@ -1112,7 +1110,7 @@ static void uart_stack_thread(void * arg)
                 // obtained the semaphore to get here.
 						}
 						m_uart_event_states = WAITING_RESPONSE_STATE;
-						last_m_uart_event_state = INIT_M_BUS_STATE;
+						last_m_uart_event_state = LAST_INIT_M_BUS_STATE;
 				}
 				
 				else
@@ -1124,7 +1122,7 @@ static void uart_stack_thread(void * arg)
 	
 			case RESET_PARTIAL_STATE:
 				
-				if(xSemaphoreTake(uart_mutex_tx, portMAX_DELAY ) == pdTRUE)
+				if(xSemaphoreTake(uart_mutex_tx, 100 ) == pdTRUE)
 				{
 						m_bus_receiver_reset_partial_power(A_FIELD); //Initialice the m-bus receiver
 						
@@ -1134,12 +1132,12 @@ static void uart_stack_thread(void * arg)
                 // obtained the semaphore to get here.
 						}
 						m_uart_event_states = WAITING_RESPONSE_STATE;
-						last_m_uart_event_state = RESET_PARTIAL_STATE;
+						last_m_uart_event_state = LAST_RESET_PARTIAL_STATE;
 				}
 				
 				else
 				{
-					m_uart_event_states = INIT_M_BUS_STATE;
+					m_uart_event_states = RESET_PARTIAL_STATE;
 				}
 				break;
 			
@@ -1149,16 +1147,43 @@ static void uart_stack_thread(void * arg)
 				{
 						switch(last_m_uart_event_state)
 						{
-							case START_UP:
-								
-							case INIT_M_BUS_STATE:
-								
-							case RESET_PARTIAL_STATE:
-								
-							case WAITING_RESPONSE_STATE:
+							case LAST_START_UP:
+								if(init_response_from_m_bus_receiver(RESPONSE_RESET_ACC))
+								{
+									m_uart_event_states = INIT_M_BUS_STATE;
+								}
+								else
+								{
+									m_uart_event_states = START_UP;
+								}
 								break;
-							case READING_M_BUS_RESPONSE:
 								
+							case LAST_INIT_M_BUS_STATE:
+								if(init_response_from_m_bus_receiver(RESPONSE_INIT))
+								{
+									m_uart_event_states = READING_M_BUS_RESPONSE;
+									
+									if (pdPASS != xTimerStart(m_bus_receiver_timer, OSTIMER_WAIT_FOR_QUEUE))
+									{
+										APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+									}
+								}
+								else
+								{
+									m_uart_event_states = INIT_M_BUS_STATE;
+								}
+								break;
+								
+							case LAST_RESET_PARTIAL_STATE:
+								if(init_response_from_m_bus_receiver(RESPONSE_RESET_PARTIAL))
+								{
+									m_uart_event_states = READING_M_BUS_RESPONSE;
+								}
+								else
+								{
+									m_uart_event_states = RESET_PARTIAL_STATE;
+								}
+								break;
 							default:
 								break;
 						}
@@ -1166,13 +1191,14 @@ static void uart_stack_thread(void * arg)
 				//vTaskDelay(10);
 				break;
 			
-			case READING_M_BUS_RESPONSE: //Inne her må det skrives om litt. Må ha en sjekk før en teller oppp til 61 tror jeg. Kanskje best å vente på 0x16?
+			case READING_M_BUS_RESPONSE: //Inne her må det skrives om litt. Må ha en sjekk før en teller opp til 61 tror jeg. Kanskje best å vente på 0x16?
 				if(xSemaphoreTake(uart_event_rx_ready,portMAX_DELAY) ==pdTRUE )
 				{
 					UNUSED_VARIABLE(app_uart_get(&data_array[counter]));
+					//if(data_array[0] == RESPONSE_START_FIELD)
 					if(counter == 61)
 					{
-						if(data_array[0]!=START_LONG_FRAME && data_array[1]!=L_READ && data_array[2]!= L_READ && data_array[61] != STOP_SHORT_LONG_FRAME)
+						if(data_array[0]!=RESPONSE_START_FIELD && data_array[1]!=RESPONSE_L_READ && data_array[2]!= RESPONSE_L_READ && data_array[61] != RESPONSE_STOP_FIELD)
 						{
 							while(app_uart_flush() !=NRF_SUCCESS);
 							counter = 0; 
