@@ -38,7 +38,10 @@ _build/nrf52832_xxaa_pm_buffer.c.o: \
  c:\sdk\components\device\nrf51_to_nrf52.h \
  c:\sdk\components\device\nrf52_name_change.h \
  c:\sdk\components\device\compiler_abstraction.h \
- c:\sdk\components\libraries\util\sdk_macros.h
+ c:\sdk\components\libraries\util\sdk_macros.h \
+ c:\sdk\components\ble\peer_manager\pm_buffer.h \
+ c:\sdk\components\libraries\util\sdk_errors.h \
+ c:\sdk\components\ble\peer_manager\pm_mutex.h
 
 c:\sdk\components\libraries\util\sdk_common.h:
 
@@ -121,3 +124,9 @@ c:\sdk\components\device\nrf52_name_change.h:
 c:\sdk\components\device\compiler_abstraction.h:
 
 c:\sdk\components\libraries\util\sdk_macros.h:
+
+c:\sdk\components\ble\peer_manager\pm_buffer.h:
+
+c:\sdk\components\libraries\util\sdk_errors.h:
+
+c:\sdk\components\ble\peer_manager\pm_mutex.h:

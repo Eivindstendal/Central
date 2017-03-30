@@ -22,3 +22,5 @@
 .\_build\pm_buffer.o: C:\Keil_v5\ARM\PACK\NordicSemiconductor\nRF_DeviceFamilyPack\8.11.1\Device\Include\nrf51_to_nrf52.h
 .\_build\pm_buffer.o: C:\Keil_v5\ARM\PACK\NordicSemiconductor\nRF_DeviceFamilyPack\8.11.1\Device\Include\nrf52_name_change.h
 .\_build\pm_buffer.o: ..\..\..\..\..\..\components\libraries\util\sdk_macros.h
+.\_build\pm_buffer.o: ..\..\..\..\..\..\components\ble\peer_manager\pm_buffer.h
+.\_build\pm_buffer.o: ..\..\..\..\..\..\components\ble\peer_manager\pm_mutex.h

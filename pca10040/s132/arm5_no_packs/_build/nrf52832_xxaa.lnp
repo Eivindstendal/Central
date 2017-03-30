@@ -37,6 +37,7 @@
 ".\_build\ble_dis.o"
 ".\_build\ble_hrs.o"
 ".\_build\ble_nus_c.o"
+".\_build\ble_nus.o"
 ".\_build\nrf_drv_clock.o"
 ".\_build\nrf_drv_common.o"
 ".\_build\nrf_drv_gpiote.o"

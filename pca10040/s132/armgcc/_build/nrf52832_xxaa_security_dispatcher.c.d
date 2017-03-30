@@ -38,7 +38,43 @@ _build/nrf52832_xxaa_security_dispatcher.c.o: \
  c:\sdk\components\device\nrf51_to_nrf52.h \
  c:\sdk\components\device\nrf52_name_change.h \
  c:\sdk\components\device\compiler_abstraction.h \
- c:\sdk\components\libraries\util\sdk_macros.h
+ c:\sdk\components\libraries\util\sdk_macros.h \
+ c:\sdk\components\ble\peer_manager\security_dispatcher.h \
+ c:\sdk\components\libraries\util\sdk_errors.h \
+ c:\sdk\components\softdevice\s132\headers\ble.h \
+ c:\sdk\components\softdevice\s132\headers\ble_ranges.h \
+ c:\sdk\components\softdevice\s132\headers\ble_types.h \
+ c:\sdk\components\softdevice\s132\headers\ble_gap.h \
+ c:\sdk\components\softdevice\s132\headers\nrf_svc.h \
+ c:\sdk\components\softdevice\s132\headers\ble_l2cap.h \
+ c:\sdk\components\softdevice\s132\headers\ble_err.h \
+ c:\sdk\components\softdevice\s132\headers\nrf_error.h \
+ c:\sdk\components\softdevice\s132\headers\ble_gatt.h \
+ c:\sdk\components\softdevice\s132\headers\ble_gattc.h \
+ c:\sdk\components\softdevice\s132\headers\ble_gatts.h \
+ c:\sdk\components\softdevice\s132\headers\ble_gap.h \
+ c:\sdk\components\ble\peer_manager\peer_manager_types.h \
+ c:\sdk\components\softdevice\s132\headers\ble_hci.h \
+ c:\sdk\components\ble\common\ble_gatt_db.h \
+ c:\sdk\components\softdevice\s132\headers\ble_gattc.h \
+ c:\sdk\components\libraries\util\app_util.h \
+ c:\sdk\components\libraries\util\app_util_platform.h \
+ c:\sdk\components\softdevice\s132\headers\nrf_soc.h \
+ c:\sdk\components\softdevice\s132\headers\nrf_error_soc.h \
+ c:\sdk\components\softdevice\s132\headers\nrf_nvic.h \
+ c:\sdk\components\libraries\util\nrf_assert.h \
+ c:\sdk\components\libraries\util\app_error.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\stdio.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\lib\gcc\arm-none-eabi\4.9.3\include\stdarg.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\sys\types.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\machine\types.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\sys\stdio.h \
+ c:\sdk\components\libraries\util\app_error_weak.h \
+ c:\sdk\components\ble\common\ble_conn_state.h \
+ c:\sdk\components\libraries\util\sdk_mapped_flags.h \
+ c:\sdk\components\ble\peer_manager\peer_database.h \
+ c:\sdk\components\ble\peer_manager\peer_manager_internal.h \
+ c:\sdk\components\ble\peer_manager\id_manager.h
 
 c:\sdk\components\libraries\util\sdk_common.h:
 
@@ -121,3 +157,75 @@ c:\sdk\components\device\nrf52_name_change.h:
 c:\sdk\components\device\compiler_abstraction.h:
 
 c:\sdk\components\libraries\util\sdk_macros.h:
+
+c:\sdk\components\ble\peer_manager\security_dispatcher.h:
+
+c:\sdk\components\libraries\util\sdk_errors.h:
+
+c:\sdk\components\softdevice\s132\headers\ble.h:
+
+c:\sdk\components\softdevice\s132\headers\ble_ranges.h:
+
+c:\sdk\components\softdevice\s132\headers\ble_types.h:
+
+c:\sdk\components\softdevice\s132\headers\ble_gap.h:
+
+c:\sdk\components\softdevice\s132\headers\nrf_svc.h:
+
+c:\sdk\components\softdevice\s132\headers\ble_l2cap.h:
+
+c:\sdk\components\softdevice\s132\headers\ble_err.h:
+
+c:\sdk\components\softdevice\s132\headers\nrf_error.h:
+
+c:\sdk\components\softdevice\s132\headers\ble_gatt.h:
+
+c:\sdk\components\softdevice\s132\headers\ble_gattc.h:
+
+c:\sdk\components\softdevice\s132\headers\ble_gatts.h:
+
+c:\sdk\components\softdevice\s132\headers\ble_gap.h:
+
+c:\sdk\components\ble\peer_manager\peer_manager_types.h:
+
+c:\sdk\components\softdevice\s132\headers\ble_hci.h:
+
+c:\sdk\components\ble\common\ble_gatt_db.h:
+
+c:\sdk\components\softdevice\s132\headers\ble_gattc.h:
+
+c:\sdk\components\libraries\util\app_util.h:
+
+c:\sdk\components\libraries\util\app_util_platform.h:
+
+c:\sdk\components\softdevice\s132\headers\nrf_soc.h:
+
+c:\sdk\components\softdevice\s132\headers\nrf_error_soc.h:
+
+c:\sdk\components\softdevice\s132\headers\nrf_nvic.h:
+
+c:\sdk\components\libraries\util\nrf_assert.h:
+
+c:\sdk\components\libraries\util\app_error.h:
+
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\stdio.h:
+
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\lib\gcc\arm-none-eabi\4.9.3\include\stdarg.h:
+
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\sys\types.h:
+
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\machine\types.h:
+
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\sys\stdio.h:
+
+c:\sdk\components\libraries\util\app_error_weak.h:
+
+c:\sdk\components\ble\common\ble_conn_state.h:
+
+c:\sdk\components\libraries\util\sdk_mapped_flags.h:
+
+c:\sdk\components\ble\peer_manager\peer_database.h:
+
+c:\sdk\components\ble\peer_manager\peer_manager_internal.h:
+
+c:\sdk\components\ble\peer_manager\id_manager.h:

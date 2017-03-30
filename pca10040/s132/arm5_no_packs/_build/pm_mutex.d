@@ -22,3 +22,13 @@
 .\_build\pm_mutex.o: C:\Keil_v5\ARM\PACK\NordicSemiconductor\nRF_DeviceFamilyPack\8.11.1\Device\Include\nrf51_to_nrf52.h
 .\_build\pm_mutex.o: C:\Keil_v5\ARM\PACK\NordicSemiconductor\nRF_DeviceFamilyPack\8.11.1\Device\Include\nrf52_name_change.h
 .\_build\pm_mutex.o: ..\..\..\..\..\..\components\libraries\util\sdk_macros.h
+.\_build\pm_mutex.o: ..\..\..\..\..\..\components\ble\peer_manager\pm_mutex.h
+.\_build\pm_mutex.o: ..\..\..\..\..\..\components\libraries\util\app_util_platform.h
+.\_build\pm_mutex.o: ..\..\..\..\..\..\components\softdevice\s132\headers\nrf_soc.h
+.\_build\pm_mutex.o: ..\..\..\..\..\..\components\softdevice\s132\headers\nrf_svc.h
+.\_build\pm_mutex.o: ..\..\..\..\..\..\components\softdevice\s132\headers\nrf_error_soc.h
+.\_build\pm_mutex.o: ..\..\..\..\..\..\components\softdevice\s132\headers\nrf_nvic.h
+.\_build\pm_mutex.o: ..\..\..\..\..\..\components\libraries\util\nrf_assert.h
+.\_build\pm_mutex.o: ..\..\..\..\..\..\components\libraries\util\app_error.h
+.\_build\pm_mutex.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
+.\_build\pm_mutex.o: ..\..\..\..\..\..\components\libraries\util\app_error_weak.h

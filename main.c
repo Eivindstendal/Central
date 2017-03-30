@@ -59,6 +59,7 @@
 
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT  1                      /**< Include the Service Changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
+#define APP_FEATURE_NOT_SUPPORTED       BLE_GATT_STATUS_ATTERR_APP_BEGIN + 2        /**< Reply when unsupported features are requested. */
 
 #define CENTRAL_LINK_COUNT      7                               /**< Number of central links used by the application. When changing this number remember to adjust the RAM settings*/
 #define PERIPHERAL_LINK_COUNT   1                               /**< Number of peripheral links used by the application. When changing this number remember to adjust the RAM settings*/
@@ -93,7 +94,8 @@
 #define UUID16_SIZE             2                               /**< Size of 16 bit UUID */
 #define UUID32_SIZE             4                               /**< Size of 32 bit UUID */
 #define UUID128_SIZE            16                              /**< Size of 128 bit UUID */
-
+#define CLOCK_UPDATE_INT       1000
+#define ACK_WAIT_INTERVAL      3000
 
 /* For slave config*/
 #define DEVICE_NAME              		       "Nordic_UART"    /**< Name of device. Will be included in the advertising data. */
@@ -106,15 +108,20 @@
 #define MAX_CONN_PARAMS_UPDATE_COUNT    3                                           /**< Number of attempts before giving up the connection parameter negotiation. */
 #define APP_ADV_INTERVAL                64                      /**< The advertising interval (in units of 0.625 ms. This value corresponds to 40 ms). */
 #define APP_ADV_TIMEOUT_IN_SECONDS      180                     /**< The advertising timeout (in units of seconds). */
+#define ACK_WAIT_INTERVAL      3000	
 
-
-
+APP_TIMER_DEF(m_clock_timer);
+APP_TIMER_DEF(ack_timer);
 static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
 static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
 static uint8_t           		m_ble_nus_c_count;  
 static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};  /**< Universally unique service identifier. */
 static ble_nus_t                        m_nus;                                      /**< Structure to identify the Nordic UART Service. */
+bool waiting_ack[CENTRAL_LINK_COUNT];
 
+uint8_t hour = 10;
+uint8_t minutes = 36;
+uint8_t seconds =0;
 
 static SemaphoreHandle_t m_ble_event_ready;  /**< Semaphore raised if there is a new event to be processed in the BLE thread. */
 static SemaphoreHandle_t m_uart_event_ready; //Semaphore raised if there is a new event to be processed in the uart thread
@@ -159,10 +166,10 @@ typedef struct
 {
 	uint8_t type;												/**< Type of slave device */
 	uint8_t address;										/**< Address given by central */
-	uint8_t actions;										/**< etc */		
-	uint8_t actions2;										/**< etc */
-	uint8_t temp;												/**< Integer part of extern temp sensor on NRF52 */
-	uint8_t temp_dec;										/**< Fractional part of extern temp semsor on NRF52 */
+	uint8_t ack;										/**< etc */		
+	uint8_t state;										/**< etc */
+	uint8_t wanted_temp;												/**< Integer part of extern temp sensor on NRF52 */
+	uint8_t current_temp;										/**< Fractional part of extern temp semsor on NRF52 */
 	uint8_t priority;										/**< The priority of the slave device */
 }my_data;
 
@@ -287,19 +294,29 @@ bool send_data(uint8_t slave_nr)
 	
 	data[0] = slave_data[slave_nr].type;
 	data[1] = slave_data[slave_nr].address;
-	data[2] = slave_data[slave_nr].actions;
-	data[3] = slave_data[slave_nr].actions2;
-	data[4] = slave_data[slave_nr].temp;
-	data[5] = slave_data[slave_nr].temp_dec;
+	data[2] = 0;
+	data[3] = slave_data[slave_nr].state;
+	data[4] = slave_data[slave_nr].wanted_temp;
+	data[5] = slave_data[slave_nr].current_temp;
 	data[6] = slave_data[slave_nr].priority;
 	
+	if(false == waiting_ack[slave_nr])
+	{		
+		NRF_LOG_INFO("	Sending not complete, waiting on ack\r\n");
+		return false;
+	}
+			err_code = ble_nus_c_string_send(&m_ble_nus_c[slave_nr],data,ELEMENTS_IN_MY_DATA_STRUCT);
+			APP_ERROR_CHECK(err_code);
 	
- 	err_code = ble_nus_c_string_send(&m_ble_nus_c[slave_nr],data,ELEMENTS_IN_MY_DATA_STRUCT);
-	APP_ERROR_CHECK(err_code);
 	
 	if(err_code == NRF_SUCCESS )
 	{
 			NRF_LOG_INFO("	sending complete \n\r");
+					waiting_ack[slave_nr]= true;
+					err_code = app_timer_start(ack_timer, 
+															 APP_TIMER_TICKS(ACK_WAIT_INTERVAL, 
+															 APP_TIMER_PRESCALER),
+																			NULL);
 			return true;
 	}
 	else
@@ -308,37 +325,56 @@ bool send_data(uint8_t slave_nr)
 			
 			return false;
 		}	
-		
-		
-	/* err_code = ble_nus_string_send(&m_nus,data,ELEMENTS_IN_MY_DATA_STRUCT);	
-	APP_ERROR_CHECK(err_code);
+}
+
+
+/**@brief Function to send ack over Nordic Uart serial
+ * @param[in]  What slave data to send
+ * @param[out] bool true or false, sending successful not not
+ */
+bool send_ack(uint8_t slave_nr)
+{
+	uint8_t data[ELEMENTS_IN_MY_DATA_STRUCT];
+	uint32_t err_code;
+	
+	data[0] = slave_data[slave_nr].type;
+	data[1] = slave_data[slave_nr].address;
+	data[2] = 1;
+	data[3] = slave_data[slave_nr].state;
+	data[4] = slave_data[slave_nr].wanted_temp;
+	data[5] = slave_data[slave_nr].current_temp;
+	data[6] = slave_data[slave_nr].priority;
+
+			err_code = ble_nus_c_string_send(&m_ble_nus_c[slave_nr],data,ELEMENTS_IN_MY_DATA_STRUCT);
+			APP_ERROR_CHECK(err_code);
+	
 	if(err_code == NRF_SUCCESS )
 	{
-			NRF_LOG_INFO("	sending to mobile complete \n\r");
+			NRF_LOG_INFO("	ack sent \n\r");		
 			return true;
 	}
 	else
 		{
-			NRF_LOG_INFO("	sending to mobile not complete \n\r");
-			
+			NRF_LOG_INFO("	ack failed \n\r");			
 			return false;
-		} */	
+		}	
 }
 
+ 
 /**@brief Function to print data to slaves
  * 
  *  
  */
 void print_slave_data(void)
 {
-	for(int i=0; i<2;i++) //CENTRAL_LINK_COUNT
+	for(int i=0; i<=1;i++)
 	{
 		NRF_LOG_INFO("	Type sent:			0x%02x\n\r",slave_data[i].type);
 		NRF_LOG_INFO("	Address sent:			0x%02x\n\r",slave_data[i].address);
-		NRF_LOG_INFO("	Etc sent:			0x%02x\n\r",slave_data[i].actions);
-		NRF_LOG_INFO("	Etc sent:			0x%02x\n\r",slave_data[i].actions2);
-		NRF_LOG_INFO("	Temp sent:			0x%02x\n\r",slave_data[i].temp);
-		NRF_LOG_INFO("	Temp_dec sent:			0x%02x\n\r",slave_data[i].temp_dec);
+		NRF_LOG_INFO("	ack:				0x%02x\n\r",slave_data[i].ack);
+		NRF_LOG_INFO("	state:				0x%02x\n\r",slave_data[i].state);
+		NRF_LOG_INFO("	Wanted_temp:			0x%02x\n\r",slave_data[i].wanted_temp);
+		NRF_LOG_INFO("	Current_temp:			0x%02x\n\r",slave_data[i].current_temp);
 		NRF_LOG_INFO("	Priority sent:			0x%02x\n\n\r",slave_data[i].priority);
 	}
  
@@ -372,19 +408,32 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 
         case BLE_NUS_C_EVT_NUS_RX_EVT:
             	err_code = bsp_indication_set(BSP_INDICATE_RCV_OK);
-				APP_ERROR_CHECK(err_code);
-					if(0x00 != p_ble_nus_evt->p_data[0])
+							APP_ERROR_CHECK(err_code);
+					if('B' == p_ble_nus_evt->p_data[0]||
+																							'b' == p_ble_nus_evt->p_data[0]||
+																							'C' == p_ble_nus_evt->p_data[0]||
+																							'c' == p_ble_nus_evt->p_data[0])
 					{
 						slave_data[curr_connection].type = p_ble_nus_evt->p_data[0]; 
 						slave_data[curr_connection].address = curr_connection;
-						slave_data[curr_connection].actions = p_ble_nus_evt->p_data[2];
-						slave_data[curr_connection].actions2 = p_ble_nus_evt->p_data[3]; 
-						slave_data[curr_connection].temp = p_ble_nus_evt->p_data[4]; 		
-						slave_data[curr_connection].temp_dec = p_ble_nus_evt->p_data[5]; 
+						slave_data[curr_connection].ack = p_ble_nus_evt->p_data[2];
+						slave_data[curr_connection].state = p_ble_nus_evt->p_data[3]; 
+						//slave_data[curr_connection].wanted_temp = p_ble_nus_evt->p_data[4]; 		
+						slave_data[curr_connection].current_temp = p_ble_nus_evt->p_data[5]; 
 						slave_data[curr_connection].priority = p_ble_nus_evt->p_data[6];
-					}
-						send_data(curr_connection);
-					
+						
+						
+						if(0 == p_ble_nus_evt->p_data[2])
+						{
+							send_ack(curr_connection);
+														
+						}else if(1== p_ble_nus_evt->p_data[2])
+						{
+							NRF_LOG_INFO("ack recieved \r\n");
+							app_timer_stop(ack_timer);
+							waiting_ack[curr_connection] = false;
+						}
+					}					
 						print_slave_data();
 								
             break;
@@ -504,7 +553,7 @@ static bool is_uuid_present(const ble_uuid_t *p_target_uuid,
  *
  * @param[in] p_ble_evt  Bluetooth stack event
  */
-static void on_ble_evt(ble_evt_t * p_ble_evt)
+static void on_ble_central_evt(ble_evt_t * p_ble_evt)
 {
     uint32_t              err_code;
     const ble_gap_evt_t * p_gap_evt = &p_ble_evt->evt.gap_evt;
@@ -653,6 +702,93 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     }
 }
 
+/**@brief Function for handling BLE Stack events involving peripheral applications. Manages the
+ * LEDs used to report the status of the peripheral applications.
+ *
+ * @param[in] p_ble_evt  Bluetooth stack event.
+ */
+static void on_ble_peripheral_evt(ble_evt_t * p_ble_evt)
+{
+    ret_code_t err_code;
+    switch (p_ble_evt->header.evt_id)
+    {
+        case BLE_GAP_EVT_CONNECTED:
+            NRF_LOG_INFO("Peripheral connected\r\n");
+            err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
+            APP_ERROR_CHECK(err_code);
+            break; //BLE_GAP_EVT_CONNECTED
+
+        case BLE_GAP_EVT_DISCONNECTED:
+            NRF_LOG_INFO("Peripheral disconnected\r\n");
+            err_code = bsp_indication_set(BSP_INDICATE_IDLE);
+            APP_ERROR_CHECK(err_code);
+            break;//BLE_GAP_EVT_DISCONNECTED
+
+        case BLE_GATTC_EVT_TIMEOUT:
+            // Disconnect on GATT Client timeout event.
+            NRF_LOG_DEBUG("GATT Client Timeout.\r\n");
+            err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gattc_evt.conn_handle,
+                                             BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+            APP_ERROR_CHECK(err_code);
+            break; // BLE_GATTC_EVT_TIMEOUT
+
+        case BLE_GATTS_EVT_TIMEOUT:
+            // Disconnect on GATT Server timeout event.
+            NRF_LOG_DEBUG("GATT Server Timeout.\r\n");
+            err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
+                                             BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+            APP_ERROR_CHECK(err_code);
+            break; // BLE_GATTS_EVT_TIMEOUT
+
+        case BLE_EVT_USER_MEM_REQUEST:
+            err_code = sd_ble_user_mem_reply(p_ble_evt->evt.gap_evt.conn_handle, NULL);
+            APP_ERROR_CHECK(err_code);
+            break;//BLE_EVT_USER_MEM_REQUEST
+
+        case BLE_GATTS_EVT_RW_AUTHORIZE_REQUEST:
+        {
+            ble_gatts_evt_rw_authorize_request_t  req;
+            ble_gatts_rw_authorize_reply_params_t auth_reply;
+
+            req = p_ble_evt->evt.gatts_evt.params.authorize_request;
+
+            if (req.type != BLE_GATTS_AUTHORIZE_TYPE_INVALID)
+            {
+                if ((req.request.write.op == BLE_GATTS_OP_PREP_WRITE_REQ)     ||
+                    (req.request.write.op == BLE_GATTS_OP_EXEC_WRITE_REQ_NOW) ||
+                    (req.request.write.op == BLE_GATTS_OP_EXEC_WRITE_REQ_CANCEL))
+                {
+                    if (req.type == BLE_GATTS_AUTHORIZE_TYPE_WRITE)
+                    {
+                        auth_reply.type = BLE_GATTS_AUTHORIZE_TYPE_WRITE;
+                    }
+                    else
+                    {
+                        auth_reply.type = BLE_GATTS_AUTHORIZE_TYPE_READ;
+                    }
+                    auth_reply.params.write.gatt_status = APP_FEATURE_NOT_SUPPORTED;
+                    err_code = sd_ble_gatts_rw_authorize_reply(p_ble_evt->evt.gatts_evt.conn_handle,
+                                                               &auth_reply);
+                    APP_ERROR_CHECK(err_code);
+                }
+            }
+        } break; // BLE_GATTS_EVT_RW_AUTHORIZE_REQUEST
+
+#if (NRF_SD_BLE_API_VERSION == 3)
+        case BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST:
+            err_code = sd_ble_gatts_exchange_mtu_reply(p_ble_evt->evt.gatts_evt.conn_handle,
+                                                       NRF_BLE_MAX_MTU_SIZE);
+            APP_ERROR_CHECK(err_code);
+            break; // BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST
+#endif
+
+        default:
+            // No implementation needed.
+            break;
+    }
+}
+
+
 
 /**@brief Function for dispatching a BLE stack event to all modules with a BLE stack event handler.
  *
@@ -663,23 +799,56 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
  */
 static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 {
-	uint16_t conn_handle;
-	conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+		uint16_t conn_handle;
+    uint16_t role;
+		
+		ble_conn_state_on_ble_evt(p_ble_evt);
+    pm_on_ble_evt(p_ble_evt);
 	
-	
-    on_ble_evt(p_ble_evt);
-    bsp_btn_ble_on_ble_evt(p_ble_evt);
-    ble_advertising_on_ble_evt(p_ble_evt);	
-	
-	 // Make sure that an invalid connection handle are not passed since
-    // our array of modules is bound to TOTAL_LINK_COUNT.
-    if (conn_handle < TOTAL_LINK_COUNT)
+		conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+		role        = ble_conn_state_role(conn_handle);
+		
+		if (role == BLE_GAP_ROLE_PERIPH)
     {
-        ble_db_discovery_on_ble_evt(&m_ble_db_discovery[conn_handle], p_ble_evt);
-        ble_nus_c_on_ble_evt(&m_ble_nus_c[conn_handle], p_ble_evt);
-    }
+			// Manages peripheral LEDs.
+			on_ble_peripheral_evt(p_ble_evt);
+			
+			ble_conn_params_on_ble_evt(p_ble_evt);
+			ble_advertising_on_ble_evt(p_ble_evt);	
+			 // Dispatch to peripheral applications.
+			ble_nus_on_ble_evt(&m_nus, p_ble_evt);
+			
+		}else if ((role == BLE_GAP_ROLE_CENTRAL) || (p_ble_evt->header.evt_id == BLE_GAP_EVT_ADV_REPORT))
+		{
+				if (p_ble_evt->header.evt_id != BLE_GAP_EVT_DISCONNECTED)
+        {
+            on_ble_central_evt(p_ble_evt);
+        }
+				
+				bsp_btn_ble_on_ble_evt(p_ble_evt);
+				
+		
+				// Make sure that an invalid connection handle are not passed since
+				// our array of modules is bound to TOTAL_LINK_COUNT.
+				if (conn_handle < TOTAL_LINK_COUNT)
+				{
+						ble_db_discovery_on_ble_evt(&m_ble_db_discovery[conn_handle], p_ble_evt);
+						ble_nus_c_on_ble_evt(&m_ble_nus_c[conn_handle], p_ble_evt);
+				}
+				
+				ble_nus_on_ble_evt(&m_nus, p_ble_evt);
+				
+				if (p_ble_evt->header.evt_id == BLE_GAP_EVT_DISCONNECTED)
+        {
+            on_ble_central_evt(p_ble_evt);
+        }
+			
+		}
 	
-	ble_nus_on_ble_evt(&m_nus, p_ble_evt);
+	
+    
+	
+	
 	
 }
 
@@ -827,7 +996,7 @@ static void nus_c_init(void)
 
 /**@brief Function for initializing buttons and leds.
  */
-static void buttons_leds_init(void)
+static void buttons_leds_init(bool * p_erase_bonds)
 {
     bsp_event_t startup_event;
 
@@ -838,6 +1007,8 @@ static void buttons_leds_init(void)
 
     err_code = bsp_btn_ble_init(NULL, &startup_event);
     APP_ERROR_CHECK(err_code);
+		
+		*p_erase_bonds = (startup_event == BSP_EVENT_CLEAR_BONDING_DATA);
 }
 
 
@@ -847,6 +1018,67 @@ static void db_discovery_init(void)
 {
     uint32_t err_code = ble_db_discovery_init(db_disc_handler);
     APP_ERROR_CHECK(err_code);
+}
+
+
+/**@brief  Clock to controll time
+ */
+static void update_clock(void)
+{	
+	seconds++;
+	if(60<=seconds)
+	{
+		//send_data(curr_connection);
+		seconds =0;
+		minutes++;
+		print_slave_data();
+		if(60<=minutes)
+		{
+			minutes = 0;
+			hour++;
+			
+			if(24<= hour)
+			{
+				hour = 0;
+			}
+		}	
+		NRF_LOG_INFO("The time is: %02d:%02d \r\n",hour,minutes);
+
+	}		
+}
+
+
+/**@brief  Timeout handler for the repeated timer
+ */
+static void timer_handler(void * p_context)
+{	
+		
+    update_clock();
+	
+}
+
+
+/**@brief  Timeout handler for the ack timer
+ */
+static void ack_timer_handler(void * p_context)
+{	
+	for(int i =0; i<=PERIPHERAL_LINK_COUNT;i++ )
+		if(true == waiting_ack[i])
+			send_data(i);
+}
+
+
+/**@brief Create timers.
+ */
+static void create_timers()
+{   
+    uint32_t err_code;
+	
+    err_code = app_timer_create(&m_clock_timer, APP_TIMER_MODE_REPEATED, timer_handler);
+		APP_ERROR_CHECK(err_code);
+		err_code = app_timer_create(&ack_timer, APP_TIMER_MODE_SINGLE_SHOT,ack_timer_handler);
+		APP_ERROR_CHECK(err_code);
+
 }
 
 
@@ -912,13 +1144,26 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
 {
 						
 																	
-						NRF_LOG_INFO("	Byte0		0x%02x\n\r",p_data[0]);
-						NRF_LOG_INFO("	Byte1		0x%02x\n\r",p_data[1]);
-						NRF_LOG_INFO("	Byte2				0x%02x\n\r",p_data[2]);
-						NRF_LOG_INFO("	Byte3				0x%02x\n\r",p_data[3]);
-						NRF_LOG_INFO("	Byte4			0x%02x\n\r",p_data[4]);
-						NRF_LOG_INFO("	Byte5		0x%02x\n\r",p_data[5]);
-						NRF_LOG_INFO("	Byte6			0x%02x\n\n\r",p_data[6]);			
+						NRF_LOG_INFO("	Byte0		%c\n\r",p_data[0]);
+						NRF_LOG_INFO("	Byte1		%c\n\r",p_data[1]);
+						NRF_LOG_INFO("	Byte2				%c\n\r",p_data[2]);
+						NRF_LOG_INFO("	Byte3				%c\n\r",p_data[3]);
+						NRF_LOG_INFO("	Byte4			%c\n\r",p_data[4]);
+						NRF_LOG_INFO("	Byte5		%c\n\r",p_data[5]);
+						NRF_LOG_INFO("	Byte6			%c\n\n\r",p_data[6]);		
+						NRF_LOG_INFO("	Byte7		%c\n\r",p_data[7]);
+						NRF_LOG_INFO("	Byte8		%c\n\r",p_data[8]);
+						NRF_LOG_INFO("	Byte9				%c\n\r",p_data[9]);
+						NRF_LOG_INFO("	Byte10				%c\n\r",p_data[10]);
+						NRF_LOG_INFO("	Byte11		%c\n\r",p_data[11]);
+						NRF_LOG_INFO("	Byte12  	%c\n\r",p_data[12]);
+						NRF_LOG_INFO("	Byte13			%c\n\n\r",p_data[13]);
+						NRF_LOG_INFO("	Byte14			%c\n\r",p_data[14]);
+						NRF_LOG_INFO("	Byte15		%c\n\r",p_data[15]);
+						NRF_LOG_INFO("	Byte16			%c\n\n\r",p_data[16]);		
+						NRF_LOG_INFO("	Byte17		%c\n\r",p_data[17]);
+						NRF_LOG_INFO("	Byte18		%c\n\r",p_data[18]);
+						NRF_LOG_INFO("	Byte19				%c\n\r",p_data[19]);
 }
 
 
@@ -994,7 +1239,7 @@ static void advertising_init(void)
     options.ble_adv_fast_timeout  = APP_ADV_TIMEOUT_IN_SECONDS;
 		
 
-    err_code = ble_advertising_init(&advdata, &scanrsp, &options, on_adv_evt, NULL);
+    err_code = ble_advertising_init(&advdata, NULL, &options, on_adv_evt, NULL); // NULL chaged from &scanrsp
     APP_ERROR_CHECK(err_code);
 }
 /**@brief Function for handling errors from the Connection Parameters module.
@@ -1028,6 +1273,161 @@ static void conn_params_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+/**@brief Function for initiating advertising and scanning.
+ */
+static void adv_scan_start(void)
+{
+    ret_code_t err_code;
+    uint32_t count;
+
+    //check if there are no flash operations in progress
+    err_code = fs_queued_op_count_get(&count);
+    APP_ERROR_CHECK(err_code);
+
+    if (count == 0)
+    {
+        // Start scanning for peripherals and initiate connection to devices which
+        // advertise Heart Rate or Running speed and cadence UUIDs.
+        scan_start();
+
+        // Turn on the LED to signal scanning.
+        bsp_board_led_on(BSP_INDICATE_SCANNING);
+				
+        // Start advertising.
+        err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
+        APP_ERROR_CHECK(err_code);
+    }
+}
+
+
+/**@brief Function for handling Peer Manager events.
+ *
+ * @param[in] p_evt  Peer Manager event.
+ */
+static void pm_evt_handler(pm_evt_t const * p_evt)
+{
+    ret_code_t err_code;
+
+    switch (p_evt->evt_id)
+    {
+        case PM_EVT_BONDED_PEER_CONNECTED:
+        {
+            NRF_LOG_INFO("Connected to a previously bonded device.\r\n");
+        } break;
+
+        case PM_EVT_CONN_SEC_SUCCEEDED:
+        {
+            NRF_LOG_INFO("Link secured. Role: %d. conn_handle: %d, Procedure: %d\r\n",
+                         ble_conn_state_role(p_evt->conn_handle),
+                         p_evt->conn_handle,
+                         p_evt->params.conn_sec_succeeded.procedure);
+        } break;
+
+        case PM_EVT_CONN_SEC_FAILED:
+        {
+            /* Often, when securing fails, it shouldn't be restarted, for security reasons.
+             * Other times, it can be restarted directly.
+             * Sometimes it can be restarted, but only after changing some Security Parameters.
+             * Sometimes, it cannot be restarted until the link is disconnected and reconnected.
+             * Sometimes it is impossible, to secure the link, or the peer device does not support it.
+             * How to handle this error is highly application dependent. */
+        } break;
+
+        case PM_EVT_CONN_SEC_CONFIG_REQ:
+        {
+            // Reject pairing request from an already bonded peer.
+            pm_conn_sec_config_t conn_sec_config = {.allow_repairing = false};
+            pm_conn_sec_config_reply(p_evt->conn_handle, &conn_sec_config);
+        } break;
+
+        case PM_EVT_STORAGE_FULL:
+        {
+            // Run garbage collection on the flash.
+            err_code = fds_gc();
+            if (err_code == FDS_ERR_BUSY || err_code == FDS_ERR_NO_SPACE_IN_QUEUES)
+            {
+                // Retry.
+            }
+            else
+            {
+                APP_ERROR_CHECK(err_code);
+            }
+        } break;
+
+        case PM_EVT_PEERS_DELETE_SUCCEEDED:
+        {
+            adv_scan_start();
+        } break;
+
+        case PM_EVT_LOCAL_DB_CACHE_APPLY_FAILED:
+        {
+            // The local database has likely changed, send service changed indications.
+            pm_local_database_has_changed();
+        } break;
+
+        case PM_EVT_PEER_DATA_UPDATE_FAILED:
+        {
+            // Assert.
+            APP_ERROR_CHECK(p_evt->params.peer_data_update_failed.error);
+        } break;
+
+        case PM_EVT_PEER_DELETE_FAILED:
+        {
+            // Assert.
+            APP_ERROR_CHECK(p_evt->params.peer_delete_failed.error);
+        } break;
+
+        case PM_EVT_PEERS_DELETE_FAILED:
+        {
+            // Assert.
+            APP_ERROR_CHECK(p_evt->params.peers_delete_failed_evt.error);
+        } break;
+
+        case PM_EVT_ERROR_UNEXPECTED:
+        {
+            // Assert.
+            APP_ERROR_CHECK(p_evt->params.error_unexpected.error);
+        } break;
+
+        case PM_EVT_CONN_SEC_START:
+        case PM_EVT_PEER_DATA_UPDATE_SUCCEEDED:
+        case PM_EVT_PEER_DELETE_SUCCEEDED:
+        case PM_EVT_LOCAL_DB_CACHE_APPLIED:
+        case PM_EVT_SERVICE_CHANGED_IND_SENT:
+        case PM_EVT_SERVICE_CHANGED_IND_CONFIRMED:
+        default:
+            break;
+    }
+}
+
+/**@brief Function for the Peer Manager initialization.
+ *
+ * @param[in] erase_bonds  Indicates whether bonding information should be cleared from
+ *                         persistent storage during initialization of the Peer Manager.
+ */
+static void peer_manager_init(bool erase_bonds)
+{
+    ble_gap_sec_params_t sec_param;
+    ret_code_t err_code;
+
+    err_code = pm_init();
+    APP_ERROR_CHECK(err_code);
+
+    if (erase_bonds)
+    {
+        err_code = pm_peers_delete();
+        APP_ERROR_CHECK(err_code);
+    }
+
+    memset(&sec_param, 0, sizeof(ble_gap_sec_params_t));
+
+
+    APP_ERROR_CHECK(err_code);
+
+    err_code = pm_register(pm_evt_handler);
+    APP_ERROR_CHECK(err_code);
+}
+
 
 /**@brief Thread for handling the Application's BLE Stack events.
  *
@@ -1039,16 +1439,33 @@ static void conn_params_init(void)
 static void ble_stack_thread(void * arg)
 {
   uint32_t err_code;
-
-	APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
+	bool erase_bonds;
 	
+	APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
+	buttons_leds_init(&erase_bonds);
+
+	
+	if (erase_bonds)
+    {
+        NRF_LOG_INFO("Bonds erased!\r\n");
+    }
+		
 	UNUSED_VARIABLE(arg);
 		
+		
+		
+		
+	//Timer_clock	
+	create_timers();
+	err_code = app_timer_start(m_clock_timer, 
+											 APP_TIMER_TICKS(CLOCK_UPDATE_INT, 
+											 APP_TIMER_PRESCALER),
+															NULL);	
 	uart_init();
 	err_code = NRF_LOG_INIT(NULL);
 	APP_ERROR_CHECK(err_code);
 			
-	buttons_leds_init();
+	
 	db_discovery_init();
 	ble_stack_init();
 	nus_c_init();
@@ -1056,14 +1473,13 @@ static void ble_stack_thread(void * arg)
 	services_init();
 	advertising_init();
 	conn_params_init();
+	peer_manager_init(erase_bonds);
 	
 	
     // Start scanning for peripherals and initiate connection
     // with devices that advertise NUS UUID.
-	scan_start();
-	
-	 err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
-	 APP_ERROR_CHECK(err_code);
+	adv_scan_start();
+
 	
 
 //    //for(;;)
