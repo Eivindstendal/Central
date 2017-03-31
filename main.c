@@ -50,6 +50,7 @@
 #include "semphr.h"
 #include "fds.h"
 #include "fstorage.h"
+
 #include "ble_conn_state.h"
 #include "nrf_drv_clock.h"
 #define NRF_LOG_MODULE_NAME "Bachelor"
@@ -60,8 +61,11 @@
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT  1                      /**< Include the Service Changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
 
-#define CENTRAL_LINK_COUNT      1                               /**< Number of central links used by the application. When changing this number remember to adjust the RAM settings*/
+#define CENTRAL_LINK_COUNT      8                               /**< Number of central links used by the application. When changing this number remember to adjust the RAM settings*/
 #define PERIPHERAL_LINK_COUNT   0                               /**< Number of peripheral links used by the application. When changing this number remember to adjust the RAM settings*/
+#define TOTAL_LINK_COUNT          CENTRAL_LINK_COUNT + PERIPHERAL_LINK_COUNT /**< Total number of links used by the application. */
+#define ELEMENTS_IN_MY_DATA_STRUCT		  7
+
 
 #if (NRF_SD_BLE_API_VERSION == 3)
 #define NRF_BLE_MAX_MTU_SIZE    GATT_MTU_SIZE_DEFAULT           /**< MTU size used in the softdevice enabling and to reply to a BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST event. */
@@ -89,13 +93,18 @@
 #define UUID16_SIZE             2                               /**< Size of 16 bit UUID */
 #define UUID32_SIZE             4                               /**< Size of 32 bit UUID */
 #define UUID128_SIZE            16                              /**< Size of 128 bit UUID */
+#define CLOCK_UPDATE_INT       1000
+#define ACK_WAIT_INTERVAL      3000														
 
 #define M_BUS_RECEIVER_INTERVAL      		2000//10000                             /**< Battery level measurement interval (ms). */
 #define OSTIMER_WAIT_FOR_QUEUE          	 2                               /**< Number of ticks to wait for the timer queue to be ready */
 
+APP_TIMER_DEF(m_clock_timer);
+APP_TIMER_DEF(ack_timer);
 
-static ble_nus_c_t              m_ble_nus_c;                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
-static ble_db_discovery_t       m_ble_db_discovery;             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
+static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
+static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
+static uint8_t           		m_ble_nus_c_count;  
 
 static SemaphoreHandle_t m_ble_event_ready;  /**< Semaphore raised if there is a new event to be processed in the BLE thread. */
 static SemaphoreHandle_t uart_event_rx_ready; //Semaphore raised if there is a new event to be processed in the uart thread
@@ -109,7 +118,19 @@ static TaskHandle_t m_logger_thread;         /**< Definition of Logger thread. *
 static TaskHandle_t m_controller_task;        //Task that controlls everything.
 
 static TimerHandle_t m_bus_receiver_timer;   //Definition of the m_bus_receiver timer. 
+static TimerHandle_t slave5; 
 
+
+
+//Variables for clock
+uint8_t hour = 10;
+uint8_t minutes = 36;
+uint8_t seconds =0;
+
+bool waiting_ack[CENTRAL_LINK_COUNT];
+
+
+static uint8_t curr_connection = 0;
 /**
  * @brief Connection parameters requested for connection.
  */
@@ -139,6 +160,21 @@ static const ble_gap_scan_params_t m_scan_params =
     #endif
 };
 
+
+typedef struct 
+{
+	uint8_t type;												/**< Type of slave device */
+	uint8_t address;										/**< Address given by central */
+	uint8_t ack;										/**< etc */		
+	uint8_t state;										/**< etc */
+	uint8_t wanted_temp;												/**< Integer part of extern temp sensor on NRF52 */
+	uint8_t current_temp;										/**< Fractional part of extern temp semsor on NRF52 */
+	uint8_t priority;										/**< The priority of the slave device */
+}my_data;
+
+static my_data slave_data[CENTRAL_LINK_COUNT];
+
+
 /**
  * @brief NUS uuid
  */
@@ -164,6 +200,7 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
     app_error_handler(0xDEADBEEF, line_num, p_file_name);
 }
 
+
 /**@brief 
  *
  * @details 
@@ -185,17 +222,6 @@ static void m_bus_timer_receiver_timeout(TimerHandle_t xTimer)
                 // obtained the semaphore to get here.
 			}
 		}
-   
-}
-
-/**@brief Function to start the timers.  //Dette kan muligens flyttes til uart stackt treaden.
- */
-static void timers_init(void)
-{
-    if (pdPASS != xTimerStart(m_bus_receiver_timer, OSTIMER_WAIT_FOR_QUEUE))
-    {
-        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
-    }
 }
 
 /**@brief Function to start scanning.
@@ -211,11 +237,6 @@ static void scan_start(void)
     ret = bsp_indication_set(BSP_INDICATE_SCANNING);
     APP_ERROR_CHECK(ret);
 		NRF_LOG_INFO("Uart_c Scan started\r\n");
-	
-//		if(xSemaphoreTake(uart_mutex_tx, (( TickType_t ) 10 ) == pdTRUE))
-//		{
-//			UNUSED_VARIABLE(app_uart_put(0x69));
-//		}
 }
 
 
@@ -230,8 +251,12 @@ static void scan_start(void)
  */
 static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
 {
-	
-    ble_nus_c_on_db_disc_evt(&m_ble_nus_c, p_evt);
+	NRF_LOG_INFO("call to ble_nus_on_db_disc_evt for instance %d and link 0x%02x!\r\n\n",
+                    p_evt->conn_handle,
+                    p_evt->conn_handle);
+					
+    ble_nus_c_on_db_disc_evt(&m_ble_nus_c[p_evt->conn_handle], p_evt);
+	curr_connection = p_evt->conn_handle;
 }
 
 
@@ -244,37 +269,130 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
  */
 void uart_event_handle(app_uart_evt_t * p_event)
 {
-    //static uint8_t counter = 0;
-		//
-	
-		//BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-	
+   
+
     switch (p_event->evt_type)
     {
         /**@snippet [Handling data from UART] */
         case APP_UART_DATA_READY:
-					UNUSED_VARIABLE(xSemaphoreGiveFromISR(uart_event_rx_ready, NULL));
+							UNUSED_VARIABLE(xSemaphoreGiveFromISR(uart_event_rx_ready, NULL));
             break;
         /**@snippet [Handling data from UART] */
         case APP_UART_COMMUNICATION_ERROR:
-					
             APP_ERROR_HANDLER(p_event->data.error_communication);
             break;
 
         case APP_UART_FIFO_ERROR:
             APP_ERROR_HANDLER(p_event->data.error_code);
             break;
-				
 				case APP_UART_TX_EMPTY:
 						//xSemaphoreGiveFromISR(uart_mutex_tx, NULL); Denne må ikke brukes. 
 						break;
-				
         default:
             break;
     }
 }
 
 
+/**@brief Function to send data over Nordic Uart serial
+ * @param[in]  What slave data to send
+ * @param[out] bool true or false, sending successful not not
+ */
+bool send_data(uint8_t slave_nr)
+{
+		
+	uint8_t data[ELEMENTS_IN_MY_DATA_STRUCT];
+	uint32_t err_code;
+	
+	data[0] = slave_data[slave_nr].type;
+	data[1] = slave_data[slave_nr].address;
+	data[2] = 0;
+	data[3] = slave_data[slave_nr].state;
+	data[4] = slave_data[slave_nr].wanted_temp;
+	data[5] = slave_data[slave_nr].current_temp;
+	data[6] = slave_data[slave_nr].priority;
+	
+	if(false == waiting_ack[slave_nr])
+	{		
+		NRF_LOG_INFO("	Sending not complete, waiting on ack\r\n");
+		return false;
+	}
+			err_code = ble_nus_c_string_send(&m_ble_nus_c[slave_nr],data,ELEMENTS_IN_MY_DATA_STRUCT);
+			APP_ERROR_CHECK(err_code);
+	
+	
+	if(err_code == NRF_SUCCESS )
+	{
+			NRF_LOG_INFO("	sending complete, ack timer started \n\r");
+					waiting_ack[slave_nr]= true;
+					err_code = app_timer_start(ack_timer, 
+															 APP_TIMER_TICKS(ACK_WAIT_INTERVAL, 
+															 APP_TIMER_PRESCALER),
+																			NULL);
+			return true;
+	}
+	else
+		{
+			NRF_LOG_INFO("	sending not complete \n\r");
+			
+			return false;
+		}	
+}
+
+
+/**@brief Function to send ack over Nordic Uart serial
+ * @param[in]  What slave data to send
+ * @param[out] bool true or false, sending successful not not
+ */
+bool send_ack(uint8_t slave_nr)
+{
+	uint8_t data[ELEMENTS_IN_MY_DATA_STRUCT];
+	uint32_t err_code;
+	
+	data[0] = slave_data[slave_nr].type;
+	data[1] = slave_data[slave_nr].address;
+	data[2] = 1;
+	data[3] = slave_data[slave_nr].state;
+	data[4] = slave_data[slave_nr].wanted_temp;
+	data[5] = slave_data[slave_nr].current_temp;
+	data[6] = slave_data[slave_nr].priority;
+
+			err_code = ble_nus_c_string_send(&m_ble_nus_c[slave_nr],data,ELEMENTS_IN_MY_DATA_STRUCT);
+			APP_ERROR_CHECK(err_code);
+	
+	if(err_code == NRF_SUCCESS )
+	{
+			NRF_LOG_INFO("	ack sent \n\r");		
+			return true;
+	}
+	else
+		{
+			NRF_LOG_INFO("	ack failed \n\r");			
+			return false;
+		}	
+}
+
+
+/**@brief Function to print data to slaves
+ * 
+ *  
+ */
+void print_slave_data(void)
+{
+	for(int i=0; i<=1;i++)
+	{
+		NRF_LOG_INFO("	Type sent:			0x%02x\n\r",slave_data[i].type);
+		NRF_LOG_INFO("	Address sent:			0x%02x\n\r",slave_data[i].address);
+		NRF_LOG_INFO("	ack:				0x%02x\n\r",slave_data[i].ack);
+		NRF_LOG_INFO("	state:				0x%02x\n\r",slave_data[i].state);
+		NRF_LOG_INFO("	Wanted_temp:			0x%02x\n\r",slave_data[i].wanted_temp);
+		NRF_LOG_INFO("	Current_temp:			0x%02x\n\r",slave_data[i].current_temp);
+		NRF_LOG_INFO("	Priority sent:			0x%02x\n\n\r",slave_data[i].priority);
+	}
+ 
+ }
+ 
+ 
 /**@brief Callback handling NUS Client events.
  *
  * @details This function is called to notify the application of NUS client events.
@@ -287,6 +405,8 @@ void uart_event_handle(app_uart_evt_t * p_event)
 static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt_t * p_ble_nus_evt)
 {
     uint32_t err_code;
+
+	
     switch (p_ble_nus_evt->evt_type)
     {
         case BLE_NUS_C_EVT_DISCOVERY_COMPLETE:
@@ -295,14 +415,41 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 
             err_code = ble_nus_c_rx_notif_enable(p_ble_nus_c);
             APP_ERROR_CHECK(err_code);
-            NRF_LOG_INFO("The device has the Nordic UART Service\r\n");
+            NRF_LOG_INFO("	The device has the Nordic UART Service\r\n");
+						
             break;
 
         case BLE_NUS_C_EVT_NUS_RX_EVT:
-//            for (uint32_t i = 0; i < p_ble_nus_evt->data_len; i++)
-//            {
-//                while (app_uart_put( p_ble_nus_evt->p_data[i]) != NRF_SUCCESS);
-//            }
+            	err_code = bsp_indication_set(BSP_INDICATE_RCV_OK);
+							APP_ERROR_CHECK(err_code);
+					if('B' == p_ble_nus_evt->p_data[0]||
+																							'b' == p_ble_nus_evt->p_data[0]||
+																							'C' == p_ble_nus_evt->p_data[0]||
+																							'c' == p_ble_nus_evt->p_data[0])
+					{
+						slave_data[curr_connection].type = p_ble_nus_evt->p_data[0]; 
+						slave_data[curr_connection].address = curr_connection;
+						slave_data[curr_connection].ack = p_ble_nus_evt->p_data[2];
+						slave_data[curr_connection].state = p_ble_nus_evt->p_data[3]; 
+						//slave_data[curr_connection].wanted_temp = p_ble_nus_evt->p_data[4]; 		
+						slave_data[curr_connection].current_temp = p_ble_nus_evt->p_data[5]; 
+						slave_data[curr_connection].priority = p_ble_nus_evt->p_data[6];
+						
+						
+						if(0 == p_ble_nus_evt->p_data[2])
+						{
+							send_ack(curr_connection);
+							send_data(curr_connection);
+														
+						}else if(1== p_ble_nus_evt->p_data[2])
+						{
+							NRF_LOG_INFO("ack recieved \r\n");
+							app_timer_stop(ack_timer);
+							waiting_ack[curr_connection] = false;
+						}
+					}					
+						print_slave_data();
+								
             break;
 
         case BLE_NUS_C_EVT_DISCONNECTED:
@@ -418,7 +565,7 @@ static bool is_uuid_present(const ble_uuid_t *p_target_uuid,
 
 /**@brief Function for handling the Application's BLE Stack events.
  *
- * @param[in] p_ble_evt  Bluetooth stack event.
+ * @param[in] p_ble_evt  Bluetooth stack event
  */
 static void on_ble_evt(ble_evt_t * p_ble_evt)
 {
@@ -456,14 +603,64 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
         }break; // BLE_GAP_EVT_ADV_REPORT
 
         case BLE_GAP_EVT_CONNECTED:
+		
+			NRF_LOG_INFO("Connection 0x%x established, starting DB discovery.\r\n",
+                         p_gap_evt->conn_handle);
+		
             //NRF_LOG_DEBUG("Connected to target\r\n");
             err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(err_code);
 
             // start discovery of services. The NUS Client waits for a discovery result
-            err_code = ble_db_discovery_start(&m_ble_db_discovery, p_ble_evt->evt.gap_evt.conn_handle);
+            err_code = ble_db_discovery_start(&m_ble_db_discovery[p_gap_evt->conn_handle],
+                                              p_gap_evt->conn_handle);
             APP_ERROR_CHECK(err_code);
+			
+			if (err_code != NRF_ERROR_BUSY)
+            {
+                APP_ERROR_CHECK(err_code);
+            }
+			
+			if (ble_conn_state_n_centrals() == CENTRAL_LINK_COUNT)
+            {
+                err_code = bsp_indication_set(BSP_INDICATE_IDLE);
+				APP_ERROR_CHECK(err_code);
+            }
+            else
+            {
+                // Resume scanning.
+                err_code = bsp_indication_set(BSP_INDICATE_SCANNING);
+				APP_ERROR_CHECK(err_code);
+                scan_start();
+            }
+			
+			
+			
             break; // BLE_GAP_EVT_CONNECTED
+			
+            
+		case BLE_GAP_EVT_DISCONNECTED:
+        {
+            uint32_t central_link_cnt; // Number of central links.
+
+            NRF_LOG_INFO("LBS central link 0x%x disconnected (reason: 0x%x)\r\n",
+                         p_gap_evt->conn_handle,
+                         p_gap_evt->params.disconnected.reason);
+
+            // Start scanning
+            scan_start();
+
+            // Update LEDs status.
+            err_code = bsp_indication_set(BSP_INDICATE_SCANNING);
+			APP_ERROR_CHECK(err_code);
+			
+            central_link_cnt = ble_conn_state_n_centrals();
+            if (central_link_cnt == 0)
+            {
+                bsp_board_led_off(1);
+            }
+        } 	
+			break;
 
         case BLE_GAP_EVT_TIMEOUT:
             if (p_gap_evt->params.timeout.src == BLE_GAP_TIMEOUT_SRC_SCAN)
@@ -529,10 +726,21 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
  */
 static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 {
+	uint16_t conn_handle;
+	conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+	
+	
     on_ble_evt(p_ble_evt);
     bsp_btn_ble_on_ble_evt(p_ble_evt);
-    ble_db_discovery_on_ble_evt(&m_ble_db_discovery, p_ble_evt);
-    ble_nus_c_on_ble_evt(&m_ble_nus_c,p_ble_evt);
+    	
+	
+	 // Make sure that an invalid connection handle are not passed since
+    // our array of modules is bound to TOTAL_LINK_COUNT.
+    if (conn_handle < TOTAL_LINK_COUNT)
+    {
+        ble_db_discovery_on_ble_evt(&m_ble_db_discovery[conn_handle], p_ble_evt);
+        ble_nus_c_on_ble_evt(&m_ble_nus_c[conn_handle], p_ble_evt);
+    }
 }
 
 /**
@@ -576,7 +784,10 @@ static void ble_stack_init(void)
 		NRF_LOG_FLUSH();
     APP_ERROR_CHECK(err_code);
 		
-
+		
+	 // Use the max config: 8 central, 0 periph, 10 VS UUID
+    //ble_enable_params.common_enable_params.vs_uuid_count = 10;
+	
     //Check the ram settings against the used number of links
     CHECK_RAM_START_ADDR(CENTRAL_LINK_COUNT,PERIPHERAL_LINK_COUNT);
 
@@ -598,8 +809,8 @@ static void ble_stack_init(void)
  * @param[in] event  Event generated by button press.
  */
 void bsp_event_handler(bsp_event_t event)
-{
-    uint32_t err_code;
+{		NRF_LOG_INFO("bps_event_handler \r\n\n\n");
+    //uint32_t err_code;
     switch (event)
     {
         case BSP_EVENT_SLEEP:
@@ -607,14 +818,13 @@ void bsp_event_handler(bsp_event_t event)
             break;
 
         case BSP_EVENT_DISCONNECT:
-            err_code = sd_ble_gap_disconnect(m_ble_nus_c.conn_handle,
-                                             BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-            if (err_code != NRF_ERROR_INVALID_STATE)
-            {
-                APP_ERROR_CHECK(err_code);
-            }
+			
             break;
-
+		case BSP_EVENT_KEY_1:
+		
+			
+			
+			break;
         default:
             break;
     }
@@ -657,10 +867,18 @@ static void nus_c_init(void)
     ble_nus_c_init_t nus_c_init_t;
 
     nus_c_init_t.evt_handler = ble_nus_c_evt_handler;
-
-    err_code = ble_nus_c_init(&m_ble_nus_c, &nus_c_init_t);
-    APP_ERROR_CHECK(err_code);
+	
+	
+	for(m_ble_nus_c_count = 0; m_ble_nus_c_count < TOTAL_LINK_COUNT; m_ble_nus_c_count++)
+	{
+		err_code = ble_nus_c_init(&m_ble_nus_c[m_ble_nus_c_count], &nus_c_init_t);
+		APP_ERROR_CHECK(err_code);
+	}
+	m_ble_nus_c_count = 0;
+	
+	
 }
+
 
 /**@brief Function for initializing buttons and leds.
  */
@@ -686,6 +904,69 @@ static void db_discovery_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+
+/**@brief  Clock to controll time
+ */
+static void update_clock(void)
+{	
+	seconds++;
+	if(60<=seconds)
+	{
+		//send_data(curr_connection);
+		seconds =0;
+		minutes++;
+		print_slave_data();
+		if(60<=minutes)
+		{
+			minutes = 0;
+			hour++;
+			
+			if(24<= hour)
+			{
+				hour = 0;
+			}
+		}	
+		NRF_LOG_INFO("The time is: %02d:%02d \r\n",hour,minutes);
+
+	}		
+}
+
+
+/**@brief  Timeout handler for the repeated timer
+ */
+static void timer_handler(void * p_context)
+{	
+		
+    update_clock();
+	
+}
+
+/**@brief  Timeout handler for the ack timer
+ */
+static void ack_timer_handler(void * p_context)
+{	
+	for(int i =0; i<=PERIPHERAL_LINK_COUNT;i++ )
+		if(true == waiting_ack[i])
+			send_data(i);
+}
+
+
+/**@brief Create timers.
+ */
+static void create_timers()
+{   
+    uint32_t err_code;
+	
+    err_code = app_timer_create(&m_clock_timer, APP_TIMER_MODE_REPEATED, timer_handler);
+		APP_ERROR_CHECK(err_code);
+		err_code = app_timer_create(&ack_timer, APP_TIMER_MODE_SINGLE_SHOT,ack_timer_handler);
+		APP_ERROR_CHECK(err_code);
+
+}
+
+
+
+
 /**@brief Thread for handling the Application's BLE Stack events.
  *
  * @details This thread is responsible for handling BLE Stack events sent from on_ble_evt().
@@ -701,6 +982,13 @@ static void ble_stack_thread(void * arg)
 	
 	UNUSED_VARIABLE(arg);
 		
+	
+	//Timer_clock	
+	create_timers();
+	err_code = app_timer_start(m_clock_timer, 
+											 APP_TIMER_TICKS(CLOCK_UPDATE_INT, 
+											 APP_TIMER_PRESCALER),
+															NULL);
 	uart_init();
 	err_code = NRF_LOG_INIT(NULL);
 	APP_ERROR_CHECK(err_code);
@@ -709,16 +997,14 @@ static void ble_stack_thread(void * arg)
 	db_discovery_init();
 	ble_stack_init();
 	nus_c_init();
-	
-//	xSemaphoreTake(uart_mutex_tx, (( TickType_t ) 10 ) == pdTRUE);
-//	m_bus_receiver_init(A_FIELD); //Initialice the m-bus receiver
-//	xSemaphoreGive(uart_mutex_tx);
+
 
 	
     // Start scanning for peripherals and initiate connection
     // with devices that advertise NUS UUID.
 	scan_start();
 
+//    //for(;;)
 		while(1)
     {
         /* Wait for event from SoftDevice */
@@ -764,6 +1050,7 @@ static void controller_task (void * arg)
 	}
 }
 
+
 //Viktig!!! Må huske å ha med vTaskDelay, for at en skal kunne tillate andre tasker å kjøre. Trenger ikke dette om en sitter å venter på ett signal eller en kø f.eks.
 			
 static void uart_stack_thread(void * arg)
@@ -775,7 +1062,7 @@ static void uart_stack_thread(void * arg)
 	static uint8_t data_array[62];
 	static uint8_t counter = 0;
 	static uart_event_states m_uart_event_states = START_UP;
-	static uart_event_states last_m_uart_event_state = START_UP;
+	static last_uart_event_states last_m_uart_event_state = LAST_START_UP;
  	
 	while(1)
 	{
@@ -783,7 +1070,7 @@ static void uart_stack_thread(void * arg)
 		switch(m_uart_event_states)
 		{
 			case START_UP: //Resetting the device. Start up state. 
-				if(xSemaphoreTake(uart_mutex_tx, portMAX_DELAY ) == pdTRUE)
+				if(xSemaphoreTake(uart_mutex_tx, 100 ) == pdTRUE)
 				{
 						m_bus_receiver_reset_application(A_FIELD); //Initialice the m-bus receiver
 						if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
@@ -792,7 +1079,7 @@ static void uart_stack_thread(void * arg)
                 // obtained the semaphore to get here.
 						}
 						m_uart_event_states = WAITING_RESPONSE_STATE;
-						last_m_uart_event_state = START_UP;
+						last_m_uart_event_state = LAST_START_UP;
 				}
 				
 				else
@@ -803,7 +1090,7 @@ static void uart_stack_thread(void * arg)
 			
 			case INIT_M_BUS_STATE:
 				
-				if(xSemaphoreTake(uart_mutex_tx, portMAX_DELAY) == pdTRUE)
+				if(xSemaphoreTake(uart_mutex_tx, 100) == pdTRUE)
 				{
 						m_bus_receiver_init(A_FIELD); //Initialice the m-bus receiver
 						
@@ -813,7 +1100,7 @@ static void uart_stack_thread(void * arg)
                 // obtained the semaphore to get here.
 						}
 						m_uart_event_states = WAITING_RESPONSE_STATE;
-						last_m_uart_event_state = INIT_M_BUS_STATE;
+						last_m_uart_event_state = LAST_INIT_M_BUS_STATE;
 				}
 				
 				else
@@ -825,7 +1112,7 @@ static void uart_stack_thread(void * arg)
 	
 			case RESET_PARTIAL_STATE:
 				
-				if(xSemaphoreTake(uart_mutex_tx, portMAX_DELAY ) == pdTRUE)
+				if(xSemaphoreTake(uart_mutex_tx, 100 ) == pdTRUE)
 				{
 						m_bus_receiver_reset_partial_power(A_FIELD); //Initialice the m-bus receiver
 						
@@ -835,12 +1122,12 @@ static void uart_stack_thread(void * arg)
                 // obtained the semaphore to get here.
 						}
 						m_uart_event_states = WAITING_RESPONSE_STATE;
-						last_m_uart_event_state = RESET_PARTIAL_STATE;
+						last_m_uart_event_state = LAST_RESET_PARTIAL_STATE;
 				}
 				
 				else
 				{
-					m_uart_event_states = INIT_M_BUS_STATE;
+					m_uart_event_states = RESET_PARTIAL_STATE;
 				}
 				break;
 			
@@ -850,19 +1137,58 @@ static void uart_stack_thread(void * arg)
 				{
 						switch(last_m_uart_event_state)
 						{
-							case 
+							case LAST_START_UP:
+								if(init_response_from_m_bus_receiver(RESPONSE_RESET_ACC))
+								{
+									m_uart_event_states = INIT_M_BUS_STATE;
+								}
+								else
+								{
+									m_uart_event_states = START_UP;
+								}
+								break;
+								
+							case LAST_INIT_M_BUS_STATE:
+								if(init_response_from_m_bus_receiver(RESPONSE_INIT))
+								{
+									m_uart_event_states = READING_M_BUS_RESPONSE;
+									
+									if (pdPASS != xTimerStart(m_bus_receiver_timer, OSTIMER_WAIT_FOR_QUEUE))
+									{
+										APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+									}
+								}
+								else
+								{
+									m_uart_event_states = INIT_M_BUS_STATE;
+								}
+								break;
+								
+							case LAST_RESET_PARTIAL_STATE:
+								if(init_response_from_m_bus_receiver(RESPONSE_RESET_PARTIAL))
+								{
+									m_uart_event_states = READING_M_BUS_RESPONSE;
+								}
+								else
+								{
+									m_uart_event_states = RESET_PARTIAL_STATE;
+								}
+								break;
+							default:
+								break;
 						}
 				}
 				//vTaskDelay(10);
 				break;
 			
-			case READING_M_BUS_RESPONSE: //Inne her må det skrives om litt. Må ha en sjekk før en teller oppp til 61 tror jeg. Kanskje best å vente på 0x16?
+			case READING_M_BUS_RESPONSE: //Inne her må det skrives om litt. Må ha en sjekk før en teller opp til 61 tror jeg. Kanskje best å vente på 0x16?
 				if(xSemaphoreTake(uart_event_rx_ready,portMAX_DELAY) ==pdTRUE )
 				{
 					UNUSED_VARIABLE(app_uart_get(&data_array[counter]));
+					//if(data_array[0] == RESPONSE_START_FIELD)
 					if(counter == 61)
 					{
-						if(data_array[0]!=START_LONG_FRAME && data_array[1]!=L_READ && data_array[2]!= L_READ && data_array[61] != STOP_SHORT_LONG_FRAME)
+						if(data_array[0]!=RESPONSE_START_FIELD && data_array[1]!=RESPONSE_L_READ && data_array[2]!= RESPONSE_L_READ && data_array[61] != RESPONSE_STOP_FIELD)
 						{
 							while(app_uart_flush() !=NRF_SUCCESS);
 							counter = 0; 
@@ -900,7 +1226,6 @@ static void uart_stack_thread(void * arg)
 }
 
 
-
 #if NRF_LOG_ENABLED
 /**@brief Thread for handling the logger.
  *
@@ -918,9 +1243,9 @@ static void logger_thread(void * arg)
 		while(1)
     {
 				//NRF_LOG_INFO("HeapSize is: %i\r\n",xPortGetFreeHeapSize());
-				
-				xSemaphoreTake(uart_mutex_tx, (( TickType_t ) 10 ) == pdTRUE);
+			
         NRF_LOG_FLUSH();
+		
         vTaskSuspend(NULL); // Suspend myself
     }
 }

@@ -66,6 +66,14 @@ REQ_UD2: Definitions for requesting data from m_bus receiver
 #define TOTAL_LENGHT_REQUEST 0x05						//Totalt length of the REQ_UD2 telegram.
 //Response from REQ_UD2 is a 62 bytes telegram from the m_bus receiver. 
 
+/*
+Definition for response telegram from m_bus after REQ_UD2 reguest.
+*/
+#define RESPONSE_START_FIELD 0x68        		//1 and 4 byte in the telegram
+#define RESPONSE_L_READ 0x38								//2 and 3 byte in the telegram
+#define RESPONSE_STOP_FIELD 0x16						//62 byte in the telegram
+
+
 
 /*
 A definition of the adresse field. 
@@ -81,9 +89,17 @@ typedef enum
 	INIT_M_BUS_STATE,
 	RESET_PARTIAL_STATE,
 	WAITING_RESPONSE_STATE,
-	//WAITING_ON_RESPONSE,
 	READING_M_BUS_RESPONSE
 } uart_event_states;
+
+typedef enum
+{
+	LAST_START_UP,
+	LAST_INIT_M_BUS_STATE,
+	LAST_RESET_PARTIAL_STATE,
+	//WAITING_RESPONSE_STATE,
+	//READING_M_BUS_RESPONSE
+} last_uart_event_states;
 
 
 /*
@@ -187,5 +203,5 @@ bool init_response_from_m_bus_receiver (uint8_t exp_response);
  *
  * @retval True if the response from m_bus_receiver is 0xE5 (#define RESPONSE 0xE5)
  */
-bool init_response_from_m_bus_receiver (uint8_t exp_response);
+bool telegram_structure_check (uint8_t byte1, uint8_t byte2, uint8_t byte3, uint8_t byte4);
 #endif //M_BUS_RECEIVER
