@@ -65,6 +65,7 @@
 #define PERIPHERAL_LINK_COUNT   1                               /**< Number of peripheral links used by the application. When changing this number remember to adjust the RAM settings*/
 #define TOTAL_LINK_COUNT          CENTRAL_LINK_COUNT + PERIPHERAL_LINK_COUNT /**< Total number of links used by the application. */
 #define ELEMENTS_IN_MY_DATA_STRUCT		  7
+#define SLAVE_TYPE						'A'																										/**< The type slave, capital letter means it has a temp sensor*/ 
 
 
 #if (NRF_SD_BLE_API_VERSION == 3)
@@ -119,9 +120,7 @@ static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, 
 static ble_nus_t                        m_nus;                                      /**< Structure to identify the Nordic UART Service. */
 bool waiting_ack[CENTRAL_LINK_COUNT];
 
-uint8_t hour = 10;
-uint8_t minutes = 36;
-uint8_t seconds =0;
+
 
 static SemaphoreHandle_t m_ble_event_ready;  /**< Semaphore raised if there is a new event to be processed in the BLE thread. */
 static SemaphoreHandle_t m_uart_event_ready; //Semaphore raised if there is a new event to be processed in the uart thread
@@ -168,8 +167,8 @@ typedef struct
 	uint8_t address;										/**< Address given by central */
 	uint8_t ack;										/**< etc */		
 	uint8_t state;										/**< etc */
-	uint8_t wanted_temp;												/**< Integer part of extern temp sensor on NRF52 */
-	uint8_t current_temp;										/**< Fractional part of extern temp semsor on NRF52 */
+	int8_t wanted_temp;												/**< Integer part of extern temp sensor on NRF52 */
+	int8_t current_temp;										/**< Fractional part of extern temp semsor on NRF52 */
 	uint8_t priority;										/**< The priority of the slave device */
 }my_data;
 static my_data slave_data[CENTRAL_LINK_COUNT];
@@ -281,7 +280,7 @@ bool send_data(uint8_t slave_nr)
 	uint8_t data[ELEMENTS_IN_MY_DATA_STRUCT];
 	uint32_t err_code;
 	
-	data[0] = slave_data[slave_nr].type;
+	data[0] = SLAVE_TYPE;
 	data[1] = slave_data[slave_nr].address;
 	data[2] = 0;
 	data[3] = slave_data[slave_nr].state;
@@ -289,7 +288,7 @@ bool send_data(uint8_t slave_nr)
 	data[5] = slave_data[slave_nr].current_temp;
 	data[6] = slave_data[slave_nr].priority;
 	
-	if(false == waiting_ack[slave_nr])
+	if(true == waiting_ack[slave_nr])
 	{		
 		NRF_LOG_INFO("	Sending not complete, waiting on ack\r\n");
 		return false;
@@ -328,7 +327,7 @@ bool send_ack(uint8_t slave_nr)
 	uint8_t data[ELEMENTS_IN_MY_DATA_STRUCT];
 	uint32_t err_code;
 	
-	data[0] = slave_data[slave_nr].type;
+	data[0] = SLAVE_TYPE;
 	data[1] = slave_data[slave_nr].address;
 	data[2] = 1;
 	data[3] = slave_data[slave_nr].state;
@@ -405,8 +404,8 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 																							'C' == p_ble_nus_evt->p_data[0]||
 																							'c' == p_ble_nus_evt->p_data[0])
 					{
-						if(p_ble_nus_evt->p_data[0] != 's' && p_ble_nus_evt->p_data[1]!= 'l')
-						{
+						
+							NRF_LOG_INFO("	Recieved data from slave \r\n");
 							slave_data[curr_connection].type = p_ble_nus_evt->p_data[0]; 
 							slave_data[curr_connection].address = curr_connection;
 							slave_data[curr_connection].ack = p_ble_nus_evt->p_data[2];
@@ -414,7 +413,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 							//slave_data[curr_connection].wanted_temp = p_ble_nus_evt->p_data[4]; 		
 							slave_data[curr_connection].current_temp = p_ble_nus_evt->p_data[5]; 
 							slave_data[curr_connection].priority = p_ble_nus_evt->p_data[6];
-						}
+						
 						
 						if(0 == p_ble_nus_evt->p_data[2])
 						{
@@ -433,6 +432,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 
         case BLE_NUS_C_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected\r\n");
+						NRF_LOG_INFO("Denne?\r\n");
             scan_start();
             break;
     }
@@ -631,7 +631,7 @@ static void on_ble_central_evt(ble_evt_t * p_ble_evt)
 
             // Update LEDs status.
             err_code = bsp_indication_set(BSP_INDICATE_SCANNING);
-			APP_ERROR_CHECK(err_code);
+						APP_ERROR_CHECK(err_code);
 			
             central_link_cnt = ble_conn_state_n_centrals();
             if (central_link_cnt == 0)
@@ -706,13 +706,13 @@ static void on_ble_peripheral_evt(ble_evt_t * p_ble_evt)
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_CONNECTED:
-            NRF_LOG_INFO("Peripheral connected\r\n");
+            NRF_LOG_INFO("Phone connected\r\n");
             err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(err_code);
             break; //BLE_GAP_EVT_CONNECTED
 
         case BLE_GAP_EVT_DISCONNECTED:
-            NRF_LOG_INFO("Peripheral disconnected\r\n");
+            NRF_LOG_INFO("Phone disconnected\r\n");
             err_code = bsp_indication_set(BSP_INDICATE_IDLE);
             APP_ERROR_CHECK(err_code);
             break;//BLE_GAP_EVT_DISCONNECTED
@@ -829,7 +829,7 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 						ble_nus_c_on_ble_evt(&m_ble_nus_c[conn_handle], p_ble_evt);
 				}
 				
-				ble_nus_on_ble_evt(&m_nus, p_ble_evt);
+				//ble_nus_on_ble_evt(&m_nus, p_ble_evt);
 				
 				if (p_ble_evt->header.evt_id == BLE_GAP_EVT_DISCONNECTED)
         {
@@ -911,8 +911,9 @@ static void ble_stack_init(void)
  * @param[in] event  Event generated by button press.
  */
 void bsp_event_handler(bsp_event_t event)
-{		NRF_LOG_INFO("bps_event_handler \r\n\n\n");
-    //uint32_t err_code;
+{		
+	NRF_LOG_INFO("bps_event_handler \r\n\n\n");
+    uint32_t err_code;
     switch (event)
     {
         case BSP_EVENT_SLEEP:
@@ -928,11 +929,13 @@ void bsp_event_handler(bsp_event_t event)
                 APP_ERROR_CHECK(err_code);
             } */
             break;
-		case BSP_EVENT_KEY_1:
+				case BSP_EVENT_KEY_1:
 		
+					NRF_LOG_INFO("Start adverticing start \r\n\n\n");
+					err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
+					APP_ERROR_CHECK(err_code);
+				break;
 			
-			
-			break;
         default:
             break;
     }
@@ -992,12 +995,12 @@ static void nus_c_init(void)
 static void buttons_leds_init(bool * p_erase_bonds)
 {
     bsp_event_t startup_event;
-
-    uint32_t err_code = bsp_init(BSP_INIT_LED,
+		uint32_t err_code;
+    err_code = bsp_init(BSP_INIT_LED | BSP_INIT_BUTTONS,
                                  APP_TIMER_TICKS(100, APP_TIMER_PRESCALER),
                                  bsp_event_handler);
     APP_ERROR_CHECK(err_code);
-
+	
     err_code = bsp_btn_ble_init(NULL, &startup_event);
     APP_ERROR_CHECK(err_code);
 		
@@ -1018,6 +1021,10 @@ static void db_discovery_init(void)
  */
 static void update_clock(void)
 {	
+static uint8_t hour = 10;
+static uint8_t minutes = 36;
+static uint8_t seconds =0;
+	
 	seconds++;
 	if(60<=seconds)
 	{
@@ -1169,7 +1176,11 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
 		slave_nr = (p_data[5]-'0')*10 + (p_data[6]-'0');
 		temp = (p_data[7]-'0')*10 + (p_data[8]-'0');
 		NRF_LOG_INFO("slave_nr: %d temp: %d \r\n",slave_nr,temp);
-		slave_data[slave_nr].wanted_temp = temp;
+		if('-' == p_data[9])
+		{
+			slave_data[slave_nr].wanted_temp = -temp;
+		}else
+			slave_data[slave_nr].wanted_temp = temp;
 		
 		send_data(slave_nr);
 		
