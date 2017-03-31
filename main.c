@@ -172,7 +172,6 @@ typedef struct
 	uint8_t current_temp;										/**< Fractional part of extern temp semsor on NRF52 */
 	uint8_t priority;										/**< The priority of the slave device */
 }my_data;
-
 static my_data slave_data[CENTRAL_LINK_COUNT];
 
 
@@ -185,6 +184,7 @@ static const ble_uuid_t m_nus_uuid =
     .type = NUS_SERVICE_UUID_TYPE
   };
 
+  
 /**@brief Function for asserts in the SoftDevice.
  *
  * @details This function will be called in case of an assert in the SoftDevice.
@@ -255,17 +255,6 @@ void uart_event_handle(app_uart_evt_t * p_event)
         /**@snippet [Handling data from UART] */
         case APP_UART_DATA_READY:
 					
-//            UNUSED_VARIABLE(app_uart_get(&data_array[index]));
-//            index++;
-
-//            if ((data_array[index - 1] == '\n') || (index >= (BLE_NUS_MAX_DATA_LEN)))
-//            {
-//                while (ble_nus_c_string_send(&m_ble_nus_c, data_array, index) != NRF_SUCCESS)
-//                {
-//                    // repeat until sent.
-//                }
-//                index = 0;
-//            }
             break;
         /**@snippet [Handling data from UART] */
         case APP_UART_COMMUNICATION_ERROR:
@@ -307,6 +296,7 @@ bool send_data(uint8_t slave_nr)
 	}
 			err_code = ble_nus_c_string_send(&m_ble_nus_c[slave_nr],data,ELEMENTS_IN_MY_DATA_STRUCT);
 			APP_ERROR_CHECK(err_code);
+			NRF_LOG_INFO("	send_string err_code %d \n\r",err_code);
 	
 	
 	if(err_code == NRF_SUCCESS )
@@ -322,6 +312,7 @@ bool send_data(uint8_t slave_nr)
 	else
 		{
 			NRF_LOG_INFO("	sending not complete \n\r");
+			
 			
 			return false;
 		}	
@@ -369,13 +360,13 @@ void print_slave_data(void)
 {
 	for(int i=0; i<=1;i++)
 	{
-		NRF_LOG_INFO("	Type sent:			0x%02x\n\r",slave_data[i].type);
-		NRF_LOG_INFO("	Address sent:			0x%02x\n\r",slave_data[i].address);
-		NRF_LOG_INFO("	ack:				0x%02x\n\r",slave_data[i].ack);
-		NRF_LOG_INFO("	state:				0x%02x\n\r",slave_data[i].state);
-		NRF_LOG_INFO("	Wanted_temp:			0x%02x\n\r",slave_data[i].wanted_temp);
-		NRF_LOG_INFO("	Current_temp:			0x%02x\n\r",slave_data[i].current_temp);
-		NRF_LOG_INFO("	Priority sent:			0x%02x\n\n\r",slave_data[i].priority);
+		NRF_LOG_INFO("	Type:				%c\n\r",slave_data[i].type);
+		NRF_LOG_INFO("	Address:			%d\n\r",slave_data[i].address);
+		NRF_LOG_INFO("	ack:				%d\n\r",slave_data[i].ack);
+		NRF_LOG_INFO("	state:				%d\n\r",slave_data[i].state);
+		NRF_LOG_INFO("	Wanted_temp:			%d\n\r",slave_data[i].wanted_temp);
+		NRF_LOG_INFO("	Current_temp:			%d\n\r",slave_data[i].current_temp);
+		NRF_LOG_INFO("	Priority:			%d\n\n\r",slave_data[i].priority);
 	}
  
  }
@@ -414,14 +405,16 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 																							'C' == p_ble_nus_evt->p_data[0]||
 																							'c' == p_ble_nus_evt->p_data[0])
 					{
-						slave_data[curr_connection].type = p_ble_nus_evt->p_data[0]; 
-						slave_data[curr_connection].address = curr_connection;
-						slave_data[curr_connection].ack = p_ble_nus_evt->p_data[2];
-						slave_data[curr_connection].state = p_ble_nus_evt->p_data[3]; 
-						//slave_data[curr_connection].wanted_temp = p_ble_nus_evt->p_data[4]; 		
-						slave_data[curr_connection].current_temp = p_ble_nus_evt->p_data[5]; 
-						slave_data[curr_connection].priority = p_ble_nus_evt->p_data[6];
-						
+						if(p_ble_nus_evt->p_data[0] != 's' && p_ble_nus_evt->p_data[1]!= 'l')
+						{
+							slave_data[curr_connection].type = p_ble_nus_evt->p_data[0]; 
+							slave_data[curr_connection].address = curr_connection;
+							slave_data[curr_connection].ack = p_ble_nus_evt->p_data[2];
+							slave_data[curr_connection].state = p_ble_nus_evt->p_data[3]; 
+							//slave_data[curr_connection].wanted_temp = p_ble_nus_evt->p_data[4]; 		
+							slave_data[curr_connection].current_temp = p_ble_nus_evt->p_data[5]; 
+							slave_data[curr_connection].priority = p_ble_nus_evt->p_data[6];
+						}
 						
 						if(0 == p_ble_nus_evt->p_data[2])
 						{
@@ -1142,9 +1135,13 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 /**@snippet [Handling the data received over BLE] */
 static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t length)
 {
-						
-																	
-						NRF_LOG_INFO("	Byte0		%c\n\r",p_data[0]);
+		//uint32_t err_code;			
+		uint8_t temp;
+		uint8_t slave_nr;
+	/* 	uint8_t tall;
+		uint8_t tall2; */
+		
+						/* NRF_LOG_INFO("	Byte0		%c\n\r",p_data[0]);
 						NRF_LOG_INFO("	Byte1		%c\n\r",p_data[1]);
 						NRF_LOG_INFO("	Byte2				%c\n\r",p_data[2]);
 						NRF_LOG_INFO("	Byte3				%c\n\r",p_data[3]);
@@ -1163,7 +1160,24 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
 						NRF_LOG_INFO("	Byte16			%c\n\n\r",p_data[16]);		
 						NRF_LOG_INFO("	Byte17		%c\n\r",p_data[17]);
 						NRF_LOG_INFO("	Byte18		%c\n\r",p_data[18]);
-						NRF_LOG_INFO("	Byte19				%c\n\r",p_data[19]);
+						NRF_LOG_INFO("	Byte19				%c\n\r",p_data[19]); */
+						
+	if('s'==p_data[0]&&'l'==p_data[1]&& 'a'== p_data[2]&& 'v'==p_data[3]&& 'e'== p_data[4])
+	{
+		
+		
+		slave_nr = (p_data[5]-'0')*10 + (p_data[6]-'0');
+		temp = (p_data[7]-'0')*10 + (p_data[8]-'0');
+		NRF_LOG_INFO("slave_nr: %d temp: %d \r\n",slave_nr,temp);
+		slave_data[slave_nr].wanted_temp = temp;
+		
+		send_data(slave_nr);
+		
+	}
+	else
+	{
+		
+	}
 }
 
 
@@ -1476,15 +1490,16 @@ static void ble_stack_thread(void * arg)
 	peer_manager_init(erase_bonds);
 	
 	
-    // Start scanning for peripherals and initiate connection
-    // with devices that advertise NUS UUID.
-	adv_scan_start();
+	// Start scanning for peripherals and initiate connection
+		// with devices that advertise NUS UUID.
+		adv_scan_start();
+ 
 
-	
 
-//    //for(;;)
 		while(1)
     {
+		
+		
         /* Wait for event from SoftDevice */
         while (pdFALSE == xSemaphoreTake(m_ble_event_ready, portMAX_DELAY))
         {
