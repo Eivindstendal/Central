@@ -931,7 +931,7 @@ void bsp_event_handler(bsp_event_t event)
             break;
 				case BSP_EVENT_KEY_1:
 		
-					NRF_LOG_INFO("Start adverticing start \r\n\n\n");
+					NRF_LOG_INFO("Start adverticing! \r\n");
 					err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
 					APP_ERROR_CHECK(err_code);
 				break;
