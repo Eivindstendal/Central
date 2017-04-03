@@ -111,14 +111,16 @@
 #define APP_ADV_TIMEOUT_IN_SECONDS      180                     /**< The advertising timeout (in units of seconds). */
 #define ACK_WAIT_INTERVAL      3000	
 
+
+
 APP_TIMER_DEF(m_clock_timer);
 APP_TIMER_DEF(ack_timer);
-static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
+static ble_nus_c_t              m_ble_nus_c[CENTRAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
 static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
 static uint8_t           		m_ble_nus_c_count;  
 static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};  /**< Universally unique service identifier. */
-static ble_nus_t                        m_nus;                                      /**< Structure to identify the Nordic UART Service. */
-bool waiting_ack[CENTRAL_LINK_COUNT];
+static ble            m_nus;                                      /**< Structure to identify the Nordic UART Service. */
+bool waiting_ack[CENTRAL_LIN_nus_t            K_COUNT];
 
 
 
@@ -357,7 +359,7 @@ bool send_ack(uint8_t slave_nr)
  */
 void print_slave_data(void)
 {
-	for(int i=0; i<=1;i++)
+	for(int i=0; i<=3;i++)
 	{
 		NRF_LOG_INFO("	Type:				%c\n\r",slave_data[i].type);
 		NRF_LOG_INFO("	Address:			%d\n\r",slave_data[i].address);
@@ -366,8 +368,7 @@ void print_slave_data(void)
 		NRF_LOG_INFO("	Wanted_temp:			%d\n\r",slave_data[i].wanted_temp);
 		NRF_LOG_INFO("	Current_temp:			%d\n\r",slave_data[i].current_temp);
 		NRF_LOG_INFO("	Priority:			%d\n\n\r",slave_data[i].priority);
-	}
- 
+	} 
  }
  
  
