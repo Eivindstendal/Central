@@ -99,7 +99,7 @@
 #define ACK_WAIT_INTERVAL      3000
 
 /* For slave config*/
-#define DEVICE_NAME              		       "Nordic_UART"    /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME              		       "El_hub_central"  											  /**< Name of device. Will be included in the advertising data. */
 #define MIN_CONN_INTERVAL               MSEC_TO_UNITS(20, UNIT_1_25_MS)             /**< Minimum acceptable connection interval (20 ms), Connection interval uses 1.25 ms units. */
 #define MAX_CONN_INTERVAL               MSEC_TO_UNITS(75, UNIT_1_25_MS)             /**< Maximum acceptable connection interval (75 ms), Connection interval uses 1.25 ms units. */
 #define SLAVE_LATENCY                   0                                           /**< Slave latency. */
@@ -115,13 +115,12 @@
 
 APP_TIMER_DEF(m_clock_timer);
 APP_TIMER_DEF(ack_timer);
-static ble_nus_c_t              m_ble_nus_c[CENTRAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
+static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
 static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
 static uint8_t           		m_ble_nus_c_count;  
 static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};  /**< Universally unique service identifier. */
-static ble            m_nus;                                      /**< Structure to identify the Nordic UART Service. */
-bool waiting_ack[CENTRAL_LIN_nus_t            K_COUNT];
-
+static ble_nus_t                m_nus;                                      /**< Structure to identify the Nordic UART Service. */
+bool waiting_ack[CENTRAL_LINK_COUNT];
 
 
 static SemaphoreHandle_t m_ble_event_ready;  /**< Semaphore raised if there is a new event to be processed in the BLE thread. */
@@ -133,6 +132,19 @@ static TaskHandle_t m_uart_stack_thread;     //Task for the uart thread.
 static TaskHandle_t m_logger_thread;         /**< Definition of Logger thread. */
 
 static uint8_t curr_connection = 0;
+
+
+static const char m_target_periph_name[] = "7dk29kshnsdc";          /**< If you want to connect to a peripheral using a given advertising name, type its name here. */
+
+
+/**@brief Variable length data encapsulation in terms of length and pointer to data */
+typedef struct
+{
+    uint8_t  * p_data;      /**< Pointer to data. */
+    uint16_t   data_len;    /**< Length of data. */
+} data_t;
+
+
 /**
  * @brief Connection parameters requested for connection.
  */
@@ -458,90 +470,180 @@ static void sleep_mode_enter(void)
     APP_ERROR_CHECK(err_code);
 }
 
-/**@brief Reads an advertising report and checks if a uuid is present in the service list.
- *
- * @details The function is able to search for 16-bit, 32-bit and 128-bit service uuids.
- *          To see the format of a advertisement packet, see
- *          https://www.bluetooth.org/Technical/AssignedNumbers/generic_access_profile.htm
- *
- * @param[in]   p_target_uuid The uuid to search fir
- * @param[in]   p_adv_report  Pointer to the advertisement report.
- *
- * @retval      true if the UUID is present in the advertisement report. Otherwise false
- */
-static bool is_uuid_present(const ble_uuid_t *p_target_uuid,
-                            const ble_gap_evt_adv_report_t *p_adv_report)
-{
-    uint32_t err_code;
-    uint32_t index = 0;
-    uint8_t *p_data = (uint8_t *)p_adv_report->data;
-    ble_uuid_t extracted_uuid;
 
-    while (index < p_adv_report->dlen)
+/**
+ * @brief Parses advertisement data, providing length and location of the field in case
+ *        matching data is found.
+ *
+ * @param[in]  Type of data to be looked for in advertisement data.
+ * @param[in]  Advertisement report length and pointer to report.
+ * @param[out] If data type requested is found in the data report, type data length and
+ *             pointer to data will be populated here.
+ *
+ * @retval NRF_SUCCESS if the data type is found in the report.
+ * @retval NRF_ERROR_NOT_FOUND if the data type could not be found.
+ */
+static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_typedata)
+{
+    uint32_t  index = 0;
+    uint8_t * p_data;
+
+    p_data = p_advdata->p_data;
+
+    while (index < p_advdata->data_len)
     {
         uint8_t field_length = p_data[index];
         uint8_t field_type   = p_data[index + 1];
 
-        if ( (field_type == BLE_GAP_AD_TYPE_16BIT_SERVICE_UUID_MORE_AVAILABLE)
-           || (field_type == BLE_GAP_AD_TYPE_16BIT_SERVICE_UUID_COMPLETE)
-           )
+        if (field_type == type)
         {
-            for (uint32_t u_index = 0; u_index < (field_length / UUID16_SIZE); u_index++)
-            {
-                err_code = sd_ble_uuid_decode(  UUID16_SIZE,
-                                                &p_data[u_index * UUID16_SIZE + index + 2],
-                                                &extracted_uuid);
-                if (err_code == NRF_SUCCESS)
-                {
-                    if ((extracted_uuid.uuid == p_target_uuid->uuid)
-                        && (extracted_uuid.type == p_target_uuid->type))
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        else if ( (field_type == BLE_GAP_AD_TYPE_32BIT_SERVICE_UUID_MORE_AVAILABLE)
-                || (field_type == BLE_GAP_AD_TYPE_32BIT_SERVICE_UUID_COMPLETE)
-                )
-        {
-            for (uint32_t u_index = 0; u_index < (field_length / UUID32_SIZE); u_index++)
-            {
-                err_code = sd_ble_uuid_decode(UUID16_SIZE,
-                &p_data[u_index * UUID32_SIZE + index + 2],
-                &extracted_uuid);
-                if (err_code == NRF_SUCCESS)
-                {
-                    if ((extracted_uuid.uuid == p_target_uuid->uuid)
-                        && (extracted_uuid.type == p_target_uuid->type))
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        else if ( (field_type == BLE_GAP_AD_TYPE_128BIT_SERVICE_UUID_MORE_AVAILABLE)
-                || (field_type == BLE_GAP_AD_TYPE_128BIT_SERVICE_UUID_COMPLETE)
-                )
-        {
-            err_code = sd_ble_uuid_decode(UUID128_SIZE,
-                                          &p_data[index + 2],
-                                          &extracted_uuid);
-            if (err_code == NRF_SUCCESS)
-            {
-                if ((extracted_uuid.uuid == p_target_uuid->uuid)
-                    && (extracted_uuid.type == p_target_uuid->type))
-                {
-                    return true;
-                }
-            }
+            p_typedata->p_data   = &p_data[index + 2];
+            p_typedata->data_len = field_length - 1;
+            return NRF_SUCCESS;
         }
         index += field_length + 1;
     }
+    return NRF_ERROR_NOT_FOUND;
+}
+
+
+///**@brief Reads an advertising report and checks if a uuid is present in the service list.
+// *
+// * @details The function is able to search for 16-bit, 32-bit and 128-bit service uuids.
+// *          To see the format of a advertisement packet, see
+// *          https://www.bluetooth.org/Technical/AssignedNumbers/generic_access_profile.htm
+// *
+// * @param[in]   p_target_uuid The uuid to search fir
+// * @param[in]   p_adv_report  Pointer to the advertisement report.
+// *
+// * @retval      true if the UUID is present in the advertisement report. Otherwise false
+// */
+//static bool is_uuid_present(const ble_uuid_t *p_target_uuid,
+//                            const ble_gap_evt_adv_report_t *p_adv_report)
+//{
+//    uint32_t err_code;
+//    uint32_t index = 0;
+//    uint8_t *p_data = (uint8_t *)p_adv_report->data;
+//    ble_uuid_t extracted_uuid;
+
+//    while (index < p_adv_report->dlen)
+//    {
+//        uint8_t field_length = p_data[index];
+//        uint8_t field_type   = p_data[index + 1];
+
+//        if ( (field_type == BLE_GAP_AD_TYPE_16BIT_SERVICE_UUID_MORE_AVAILABLE)
+//           || (field_type == BLE_GAP_AD_TYPE_16BIT_SERVICE_UUID_COMPLETE)
+//           )
+//        {
+//            for (uint32_t u_index = 0; u_index < (field_length / UUID16_SIZE); u_index++)
+//            {
+//                err_code = sd_ble_uuid_decode(  UUID16_SIZE,
+//                                                &p_data[u_index * UUID16_SIZE + index + 2],
+//                                                &extracted_uuid);
+//                if (err_code == NRF_SUCCESS)
+//                {
+//                    if ((extracted_uuid.uuid == p_target_uuid->uuid)
+//                        && (extracted_uuid.type == p_target_uuid->type))
+//                    {
+//                        return true;
+//                    }
+//                }
+//            }
+//        }
+
+//        else if ( (field_type == BLE_GAP_AD_TYPE_32BIT_SERVICE_UUID_MORE_AVAILABLE)
+//                || (field_type == BLE_GAP_AD_TYPE_32BIT_SERVICE_UUID_COMPLETE)
+//                )
+//        {
+//            for (uint32_t u_index = 0; u_index < (field_length / UUID32_SIZE); u_index++)
+//            {
+//                err_code = sd_ble_uuid_decode(UUID16_SIZE,
+//                &p_data[u_index * UUID32_SIZE + index + 2],
+//                &extracted_uuid);
+//                if (err_code == NRF_SUCCESS)
+//                {
+//                    if ((extracted_uuid.uuid == p_target_uuid->uuid)
+//                        && (extracted_uuid.type == p_target_uuid->type))
+//                    {
+//                        return true;
+//                    }
+//                }
+//            }
+//        }
+
+//        else if ( (field_type == BLE_GAP_AD_TYPE_128BIT_SERVICE_UUID_MORE_AVAILABLE)
+//                || (field_type == BLE_GAP_AD_TYPE_128BIT_SERVICE_UUID_COMPLETE)
+//                )
+//        {
+//            err_code = sd_ble_uuid_decode(UUID128_SIZE,
+//                                          &p_data[index + 2],
+//                                          &extracted_uuid);
+//            if (err_code == NRF_SUCCESS)
+//            {
+//                if ((extracted_uuid.uuid == p_target_uuid->uuid)
+//                    && (extracted_uuid.type == p_target_uuid->type))
+//                {
+//                    return true;
+//                }
+//            }
+//        }
+//        index += field_length + 1;
+//    }
+//    return false;
+//}
+
+
+/**@brief Function for searching a given name in the advertisement packets.
+ *
+ * @details Use this function to parse received advertising data and to find a given
+ * name in them either as 'complete_local_name' or as 'short_local_name'.
+ *
+ * @param[in]   p_adv_report   advertising data to parse.
+ * @param[in]   name_to_find   name to search.
+ * @return   true if the given name was found, false otherwise.
+ */
+static bool find_adv_name(const ble_gap_evt_adv_report_t *p_adv_report, const char * name_to_find)
+{
+    uint32_t err_code;
+    data_t   adv_data;
+    data_t   dev_name;
+
+    // Initialize advertisement report for parsing
+    adv_data.p_data     = (uint8_t *)p_adv_report->data;
+    adv_data.data_len   = p_adv_report->dlen;
+
+
+    //search for advertising names
+    err_code = adv_report_parse(BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME,
+                                &adv_data,
+                                &dev_name);
+    if (err_code == NRF_SUCCESS)
+    {
+        if (memcmp(name_to_find, dev_name.p_data, dev_name.data_len )== 0)
+        {
+            return true;
+        }
+    }
+    else
+    {
+        // Look for the short local name if it was not found as complete
+        err_code = adv_report_parse(BLE_GAP_AD_TYPE_SHORT_LOCAL_NAME,
+                                    &adv_data,
+                                    &dev_name);
+        if (err_code != NRF_SUCCESS)
+        {
+            return false;
+        }
+        if (memcmp(m_target_periph_name, dev_name.p_data, dev_name.data_len )== 0)
+        {
+            return true;
+        }
+    }
     return false;
 }
+
+	
+
 
 /**@brief Function for handling the Application's BLE Stack events.
  *
@@ -556,16 +658,26 @@ static void on_ble_central_evt(ble_evt_t * p_ble_evt)
     {
         case BLE_GAP_EVT_ADV_REPORT:
         {
-            const ble_gap_evt_adv_report_t * p_adv_report = &p_gap_evt->params.adv_report;
+            bool do_connect = false;
+						const ble_gap_evt_adv_report_t * p_adv_report = &p_gap_evt->params.adv_report;
+						
 
-            if (is_uuid_present(&m_nus_uuid, p_adv_report))
+					
+						if (find_adv_name(&p_gap_evt->params.adv_report, m_target_periph_name))
             {
-
-                err_code = sd_ble_gap_connect(&p_adv_report->peer_addr,
+                 
+							NRF_LOG_INFO("Name match.\r\n");
+							do_connect = true;
+						}
+									
+						
+						if(do_connect)
+						{
+							NRF_LOG_INFO("Connecting :D \r\n");
+							err_code = sd_ble_gap_connect(&p_adv_report->peer_addr,
                                               &m_scan_params,
                                               &m_connection_param);
-
-                if (err_code == NRF_SUCCESS)
+							if (err_code == NRF_SUCCESS)
                 {
                     // scan is automatically stopped by the connect
                     err_code = bsp_indication_set(BSP_INDICATE_IDLE);
@@ -578,8 +690,10 @@ static void on_ble_central_evt(ble_evt_t * p_ble_evt)
                              p_adv_report->peer_addr.addr[4],
                              p_adv_report->peer_addr.addr[5]
                              );
-                }
-            }
+								}
+
+							}
+								
         }break; // BLE_GAP_EVT_ADV_REPORT
 
         case BLE_GAP_EVT_CONNECTED:
@@ -838,12 +952,6 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
         }
 			
 		}
-	
-	
-    
-	
-	
-	
 }
 
 /**

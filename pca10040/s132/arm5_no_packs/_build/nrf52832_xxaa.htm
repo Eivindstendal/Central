@@ -3,7 +3,7 @@
 <title>Static Call Graph - [.\_build\nrf52832_xxaa.axf]</title></head>
 <body><HR>
 <H1>Static Call Graph for image .\_build\nrf52832_xxaa.axf</H1><HR>
-<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060183: Last Updated: Fri Mar 31 12:41:47 2017
+<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060183: Last Updated: Mon Apr 03 18:49:37 2017
 <BR><P>
 <H3>Maximum Stack Usage =        544 bytes + Unknown(Cycles, Untraceable Function Pointers)</H3><H3>
 Call chain for Maximum Stack Depth:</H3>
@@ -401,7 +401,8 @@ Global Symbols
 <P><STRONG><a name="[88]"></a>memcmp</STRONG> (Thumb, 26 bytes, Stack size 12 bytes, memcmp.o(.text))
 <BR><BR>[Stack]<UL><LI>Max Depth = 12<LI>Call Chain = memcmp
 </UL>
-<BR>[Called By]<UL><LI><a href="#[174]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;im_master_ids_compare
+<BR>[Called By]<UL><LI><a href="#[e7]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;on_ble_central_evt
+<LI><a href="#[174]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;im_master_ids_compare
 <LI><a href="#[172]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;im_is_duplicate_bonding_data
 <LI><a href="#[169]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;im_address_resolve
 <LI><a href="#[87]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;addr_compare
@@ -601,6 +602,7 @@ Global Symbols
 <LI><a href="#[86]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;send_data
 <LI><a href="#[ee]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;send_ack
 <LI><a href="#[32]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
+<LI><a href="#[3e]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;bsp_event_handler
 <LI><a href="#[10d]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;sleep_mode_enter
 <LI><a href="#[93]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;scan_start
 <LI><a href="#[46]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;pm_evt_handler
@@ -746,6 +748,7 @@ Global Symbols
 <LI><a href="#[c7]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;adv_mode_next_avail_get
 </UL>
 <BR>[Called By]<UL><LI><a href="#[c6]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;ble_advertising_on_ble_evt
+<LI><a href="#[3e]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;bsp_event_handler
 <LI><a href="#[91]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;adv_scan_start
 </UL>
 
@@ -1086,10 +1089,12 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[fb]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;bsp_btn_ble_init
 </UL>
 
-<P><STRONG><a name="[3e]"></a>bsp_event_handler</STRONG> (Thumb, 54 bytes, Stack size 8 bytes, main.o(i.bsp_event_handler))
-<BR><BR>[Stack]<UL><LI>Max Depth = 232<LI>Call Chain = bsp_event_handler &rArr; sleep_mode_enter &rArr; bsp_indication_set &rArr; bsp_led_indication &rArr; app_timer_start &rArr; xTimerGenericCommand &rArr; xQueueGenericSend &rArr; xTaskResumeAll &rArr; xTaskIncrementTick
+<P><STRONG><a name="[3e]"></a>bsp_event_handler</STRONG> (Thumb, 60 bytes, Stack size 8 bytes, main.o(i.bsp_event_handler))
+<BR><BR>[Stack]<UL><LI>Max Depth = 280<LI>Call Chain = bsp_event_handler &rArr; ble_advertising_start &rArr; set_adv_mode_slow &rArr; ble_advdata_set &rArr; adv_data_encode &rArr; uuid_list_encode &rArr; uuid_list_sized_encode
 </UL>
 <BR>[Calls]<UL><LI><a href="#[a5]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;nrf_log_frontend_std_0
+<LI><a href="#[95]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;ble_advertising_start
+<LI><a href="#[7c]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;app_error_handler_bare
 <LI><a href="#[10d]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;sleep_mode_enter
 </UL>
 <BR>[Address Reference Count : 1]<UL><LI> main.o(i.ble_stack_thread)
@@ -2414,7 +2419,7 @@ Global Symbols
 </UL>
 <BR>[Address Reference Count : 1]<UL><LI> security_manager.o(.constdata)
 </UL>
-<P><STRONG><a name="[ef]"></a>print_slave_data</STRONG> (Thumb, 92 bytes, Stack size 16 bytes, main.o(i.print_slave_data))
+<P><STRONG><a name="[ef]"></a>print_slave_data</STRONG> (Thumb, 96 bytes, Stack size 16 bytes, main.o(i.print_slave_data))
 <BR><BR>[Stack]<UL><LI>Max Depth = 84<LI>Call Chain = print_slave_data &rArr; nrf_log_frontend_std_1 &rArr; buf_prealloc &rArr; app_util_critical_region_enter
 </UL>
 <BR>[Calls]<UL><LI><a href="#[1b8]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;nrf_log_frontend_std_1
@@ -3152,6 +3157,12 @@ Local Symbols
 </UL>
 <BR>[Address Reference Count : 1]<UL><LI> main.o(i.ble_stack_thread)
 </UL>
+<P><STRONG><a name="[1bd]"></a>adv_report_parse</STRONG> (Thumb, 46 bytes, Stack size 16 bytes, main.o(i.adv_report_parse))
+<BR><BR>[Stack]<UL><LI>Max Depth = 16<LI>Call Chain = adv_report_parse
+</UL>
+<BR>[Called By]<UL><LI><a href="#[e7]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;on_ble_central_evt
+</UL>
+
 <P><STRONG><a name="[91]"></a>adv_scan_start</STRONG> (Thumb, 46 bytes, Stack size 8 bytes, main.o(i.adv_scan_start))
 <BR><BR>[Stack]<UL><LI>Max Depth = 280<LI>Call Chain = adv_scan_start &rArr; ble_advertising_start &rArr; set_adv_mode_slow &rArr; ble_advdata_set &rArr; adv_data_encode &rArr; uuid_list_encode &rArr; uuid_list_sized_encode
 </UL>
@@ -3227,7 +3238,7 @@ Local Symbols
 <BR>[Called By]<UL><LI><a href="#[4a]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;ble_stack_thread
 </UL>
 
-<P><STRONG><a name="[4a]"></a>ble_stack_thread</STRONG> (Thumb, 494 bytes, Stack size 56 bytes, main.o(i.ble_stack_thread))
+<P><STRONG><a name="[4a]"></a>ble_stack_thread</STRONG> (Thumb, 476 bytes, Stack size 56 bytes, main.o(i.ble_stack_thread))
 <BR><BR>[Stack]<UL><LI>Max Depth = 472<LI>Call Chain = ble_stack_thread &rArr; advertising_init &rArr; ble_advertising_init &rArr; ble_advdata_set &rArr; adv_data_encode &rArr; uuid_list_encode &rArr; uuid_list_sized_encode
 </UL>
 <BR>[Calls]<UL><LI><a href="#[101]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;xQueueGenericReceive
@@ -3271,12 +3282,6 @@ Local Symbols
 </UL>
 <BR>[Address Reference Count : 1]<UL><LI> main.o(i.ble_stack_thread)
 </UL>
-<P><STRONG><a name="[1bd]"></a>is_uuid_present</STRONG> (Thumb, 224 bytes, Stack size 32 bytes, main.o(i.is_uuid_present))
-<BR><BR>[Stack]<UL><LI>Max Depth = 32<LI>Call Chain = is_uuid_present
-</UL>
-<BR>[Called By]<UL><LI><a href="#[e7]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;on_ble_central_evt
-</UL>
-
 <P><STRONG><a name="[4c]"></a>logger_thread</STRONG> (Thumb, 14 bytes, Stack size 0 bytes, main.o(i.logger_thread))
 <BR><BR>[Stack]<UL><LI>Max Depth = 64 + In Cycle
 <LI>Call Chain = logger_thread &rArr;  logger_thread (Cycle)
@@ -3289,7 +3294,7 @@ Local Symbols
 </UL>
 <BR>[Address Reference Count : 1]<UL><LI> main.o(i.main)
 </UL>
-<P><STRONG><a name="[44]"></a>nus_data_handler</STRONG> (Thumb, 106 bytes, Stack size 16 bytes, main.o(i.nus_data_handler))
+<P><STRONG><a name="[44]"></a>nus_data_handler</STRONG> (Thumb, 126 bytes, Stack size 16 bytes, main.o(i.nus_data_handler))
 <BR><BR>[Stack]<UL><LI>Max Depth = 224<LI>Call Chain = nus_data_handler &rArr; send_data &rArr; app_timer_start &rArr; xTimerGenericCommand &rArr; xQueueGenericSend &rArr; xTaskResumeAll &rArr; xTaskIncrementTick
 </UL>
 <BR>[Calls]<UL><LI><a href="#[e3]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;nrf_log_frontend_std_2
@@ -3307,8 +3312,8 @@ Local Symbols
 </UL>
 <BR>[Address Reference Count : 1]<UL><LI> main.o(i.advertising_init)
 </UL>
-<P><STRONG><a name="[e7]"></a>on_ble_central_evt</STRONG> (Thumb, 342 bytes, Stack size 24 bytes, main.o(i.on_ble_central_evt))
-<BR><BR>[Stack]<UL><LI>Max Depth = 248<LI>Call Chain = on_ble_central_evt &rArr; scan_start &rArr; bsp_indication_set &rArr; bsp_led_indication &rArr; app_timer_start &rArr; xTimerGenericCommand &rArr; xQueueGenericSend &rArr; xTaskResumeAll &rArr; xTaskIncrementTick
+<P><STRONG><a name="[e7]"></a>on_ble_central_evt</STRONG> (Thumb, 420 bytes, Stack size 32 bytes, main.o(i.on_ble_central_evt))
+<BR><BR>[Stack]<UL><LI>Max Depth = 256<LI>Call Chain = on_ble_central_evt &rArr; scan_start &rArr; bsp_indication_set &rArr; bsp_led_indication &rArr; app_timer_start &rArr; xTimerGenericCommand &rArr; xQueueGenericSend &rArr; xTaskResumeAll &rArr; xTaskIncrementTick
 </UL>
 <BR>[Calls]<UL><LI><a href="#[1ba]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;nrf_log_frontend_std_6
 <LI><a href="#[e3]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;nrf_log_frontend_std_2
@@ -3320,7 +3325,8 @@ Local Symbols
 <LI><a href="#[d3]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;ble_conn_state_n_centrals
 <LI><a href="#[7c]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;app_error_handler_bare
 <LI><a href="#[93]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;scan_start
-<LI><a href="#[1bd]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;is_uuid_present
+<LI><a href="#[1bd]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;adv_report_parse
+<LI><a href="#[88]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;memcmp
 </UL>
 <BR>[Called By]<UL><LI><a href="#[3d]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;ble_evt_dispatch
 </UL>
