@@ -119,8 +119,8 @@ static ble_nus_c_t              m_ble_nus_c[CENTRAL_LINK_COUNT];                
 static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];             /**< Instance of database discovery module. Must be passed to all db_discovert API calls */
 static uint8_t           		m_ble_nus_c_count;  
 static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};  /**< Universally unique service identifier. */
-static ble            m_nus;                                      /**< Structure to identify the Nordic UART Service. */
-bool waiting_ack[CENTRAL_LIN_nus_t            K_COUNT];
+static ble_nus_t           m_nus;                                      /**< Structure to identify the Nordic UART Service. */
+bool waiting_ack[CENTRAL_LINK_COUNT];
 
 
 
