@@ -92,6 +92,7 @@ _build/nrf52832_xxaa_main.c.o: ../../../main.c \
  c:\sdk\components\softdevice\common\softdevice_handler\ble_stack_handler_types.h \
  c:\sdk\components\softdevice\common\softdevice_handler\ant_stack_handler_types.h \
  c:\sdk\components\softdevice\common\softdevice_handler\app_ram_base.h \
+ c:\sdk\components\ble\ble_services\ble_nus\ble_nus.h \
  c:\sdk\components\ble\ble_services\ble_nus_c\ble_nus_c.h \
  c:\sdk\components\ble\ble_db_discovery\ble_db_discovery.h \
  c:\sdk\components\ble\common\ble_gatt_db.h \
@@ -136,8 +137,7 @@ _build/nrf52832_xxaa_main.c.o: ../../../main.c \
  c:\sdk\components\libraries\log\src\nrf_log_internal.h \
  c:\sdk\components\libraries\log\nrf_log_ctrl.h \
  c:\sdk\components\libraries\log\src\nrf_log_ctrl_internal.h \
- ../../../m_bus_receiver.h \
- c:\sdk\components\ble\ble_services\ble_nus\ble_nus.h
+ ../../../m_bus_receiver.h
 
 c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\lib\gcc\arm-none-eabi\4.9.3\include\stdint.h:
 
@@ -329,6 +329,8 @@ c:\sdk\components\softdevice\common\softdevice_handler\ant_stack_handler_types.h
 
 c:\sdk\components\softdevice\common\softdevice_handler\app_ram_base.h:
 
+c:\sdk\components\ble\ble_services\ble_nus\ble_nus.h:
+
 c:\sdk\components\ble\ble_services\ble_nus_c\ble_nus_c.h:
 
 c:\sdk\components\ble\ble_db_discovery\ble_db_discovery.h:
@@ -418,5 +420,3 @@ c:\sdk\components\libraries\log\nrf_log_ctrl.h:
 c:\sdk\components\libraries\log\src\nrf_log_ctrl_internal.h:
 
 ../../../m_bus_receiver.h:
-
-c:\sdk\components\ble\ble_services\ble_nus\ble_nus.h:

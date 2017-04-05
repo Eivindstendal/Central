@@ -37,6 +37,7 @@
 #include "boards.h"
 #include "sensorsim.h"
 #include "softdevice_handler.h"
+#include "ble_nus.h"
 #include "ble_nus_c.h"
 #include "app_timer.h"
 #include "app_util.h"
@@ -56,7 +57,7 @@
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "m_bus_receiver.h"
-#include "ble_nus.h"
+
 
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT  1                      /**< Include the Service Changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
@@ -201,14 +202,14 @@ typedef struct
 static my_data slave_data[CENTRAL_LINK_COUNT];
 
 
-/**
- * @brief NUS uuid
- */
-static const ble_uuid_t m_nus_uuid =
-  {
-    .uuid = BLE_UUID_NUS_SERVICE,
-    .type = NUS_SERVICE_UUID_TYPE
-  };
+///**
+// * @brief NUS uuid
+// */
+//static const ble_uuid_t m_nus_uuid =
+//  {
+//    .uuid = BLE_UUID_NUS_SERVICE,
+//    .type = NUS_SERVICE_UUID_TYPE
+//  };
 
   
 /**@brief Function for asserts in the SoftDevice.
@@ -1012,7 +1013,6 @@ static void ble_stack_init(void)
     err_code = softdevice_enable_get_default_config(CENTRAL_LINK_COUNT,
                                                     PERIPHERAL_LINK_COUNT,
                                                     &ble_enable_params);
-		NRF_LOG_FLUSH();
     APP_ERROR_CHECK(err_code);
 		
 		

@@ -38,9 +38,3 @@
 .\_build\nrf_log_backend_serial.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\ctype.h
 .\_build\nrf_log_backend_serial.o: ..\..\..\..\..\..\external\segger_rtt\SEGGER_RTT_Conf.h
 .\_build\nrf_log_backend_serial.o: ..\..\..\..\..\..\external\segger_rtt\SEGGER_RTT.h
-.\_build\nrf_log_backend_serial.o: ..\..\..\..\..\..\components\drivers_nrf\uart\nrf_drv_uart.h
-.\_build\nrf_log_backend_serial.o: ..\..\..\..\..\..\components\drivers_nrf\hal\nrf_uart.h
-.\_build\nrf_log_backend_serial.o: ..\..\..\..\..\..\components\drivers_nrf\hal\nrf_peripherals.h
-.\_build\nrf_log_backend_serial.o: C:\Keil_v5\ARM\PACK\NordicSemiconductor\nRF_DeviceFamilyPack\8.11.1\Device\Include\nrf52832_peripherals.h
-.\_build\nrf_log_backend_serial.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
-.\_build\nrf_log_backend_serial.o: ..\..\..\..\..\..\components\drivers_nrf\hal\nrf_uarte.h

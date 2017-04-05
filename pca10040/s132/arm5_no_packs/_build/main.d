@@ -60,6 +60,7 @@
 .\_build\main.o: ..\..\..\..\..\..\components\softdevice\common\softdevice_handler\ble_stack_handler_types.h
 .\_build\main.o: ..\..\..\..\..\..\components\softdevice\common\softdevice_handler\ant_stack_handler_types.h
 .\_build\main.o: ..\..\..\..\..\..\components\softdevice\common\softdevice_handler\app_ram_base.h
+.\_build\main.o: ..\..\..\..\..\..\components\ble\ble_services\ble_nus\ble_nus.h
 .\_build\main.o: ..\..\..\..\..\..\components\ble\ble_services\ble_nus_c\ble_nus_c.h
 .\_build\main.o: ..\..\..\..\..\..\components\ble\ble_db_discovery\ble_db_discovery.h
 .\_build\main.o: ..\..\..\..\..\..\components\ble\common\ble_gatt_db.h
@@ -102,4 +103,3 @@
 .\_build\main.o: ..\..\..\..\..\..\components\libraries\log\nrf_log_ctrl.h
 .\_build\main.o: ..\..\..\..\..\..\components\libraries\log\src\nrf_log_ctrl_internal.h
 .\_build\main.o: ..\..\..\m_bus_receiver.h
-.\_build\main.o: ..\..\..\..\..\..\components\ble\ble_services\ble_nus\ble_nus.h
