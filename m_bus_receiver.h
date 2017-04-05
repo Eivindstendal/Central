@@ -85,8 +85,8 @@ States used in the uart stack thread
 */
 typedef enum
 {
-	START_UP,
 	INIT_M_BUS_STATE,
+	RESET_ACC,
 	RESET_PARTIAL_STATE,
 	WAITING_RESPONSE_STATE,
 	READING_M_BUS_RESPONSE
@@ -94,11 +94,9 @@ typedef enum
 
 typedef enum
 {
-	LAST_START_UP,
 	LAST_INIT_M_BUS_STATE,
+	LAST_RESET_ACC,
 	LAST_RESET_PARTIAL_STATE,
-	//WAITING_RESPONSE_STATE,
-	//READING_M_BUS_RESPONSE
 } last_uart_event_states;
 
 
@@ -189,9 +187,9 @@ void m_bus_receiver_reset_partial_power(uint8_t primary_adr_off_m_bus);
  *
  * @param[in] exp_response    The expected response from the m_bus receiver
  *
- * @retval True if the response from m_bus_receiver is 0xE5 (#define RESPONSE 0xE5)
+ * @retval True if the response from m_bresponse_from_m_busus_receiver is 0xE5 (#define RESPONSE 0xE5)
  */
-bool init_response_from_m_bus_receiver (uint8_t exp_response);
+bool response_from_m_bus (uint8_t exp_response);
 
  /**@brief Function for checking response from the m_bus_receiver init
  *
@@ -204,4 +202,16 @@ bool init_response_from_m_bus_receiver (uint8_t exp_response);
  * @retval True if the response from m_bus_receiver is 0xE5 (#define RESPONSE 0xE5)
  */
 bool telegram_structure_check (uint8_t byte1, uint8_t byte2, uint8_t byte3, uint8_t byte4);
+
+ /**@brief Function for decoding bcd.
+ *
+ * @details   
+ *          (Don`t need to be protected with a mutex)
+ *
+ *
+ * @param[in] 
+ *
+ * @retval 
+ */
+uint8_t bcdtobyte(uint8_t bcd);
 #endif //M_BUS_RECEIVER

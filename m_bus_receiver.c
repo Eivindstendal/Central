@@ -57,7 +57,7 @@ void m_bus_receiver_reset_application(uint8_t primary_adr_off_m_bus)
 	
 	for(uint8_t i=0; i<TOTAL_LENGTH_RESET_ACC; i++)
 	{
-		while (app_uart_put( data_array[i]) != NRF_SUCCESS);
+		while (app_uart_put(data_array[i]) != NRF_SUCCESS);
 	}
 }
 
@@ -97,7 +97,7 @@ void m_bus_send_request (uint8_t primary_adr_off_m_bus, uint8_t c_field)
 	}
 }
 
-bool init_response_from_m_bus_receiver (uint8_t exp_response)
+bool response_from_m_bus (uint8_t exp_response)
 {
 	static uint8_t response_array[1];
 	UNUSED_VARIABLE(app_uart_get(&response_array[0]));
@@ -110,3 +110,14 @@ bool init_response_from_m_bus_receiver (uint8_t exp_response)
 		return false;
 }
 
+uint8_t bcdtobyte(uint8_t bcd)
+{
+	uint8_t msd = (uint8_t) bcd;
+	uint8_t lsd = (uint8_t) bcd;
+	
+	msd /= 16;
+	lsd &= 0x0F;
+	//Sjekk på om ting stemmer overens burde komme her.
+	
+	return msd*10 + lsd;
+}
