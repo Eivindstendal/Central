@@ -57,8 +57,13 @@
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "m_bus_receiver.h"
+#include "math.h"
 
-
+#define  PREFERRED_CONSUME_LIMIT 	 3000													/**<kwt   Will turn off devices in low priority*/
+#define  NORMAL_MAX_CONSUME_LIMIT  5000													/**<will turn off devices in low and medium priority*/
+#define  MAX_CONSUME_LIMIT 	 			10000													/**<will turn off devices in low, medium and highest_priority*/
+#define  BOILER_KW                 2000
+#define  SLAVE_OFF_INTERVAL      	900000                             /**< Turn slave off after 15min (ms). */
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT  1                      /**< Include the Service Changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
 #define APP_FEATURE_NOT_SUPPORTED       BLE_GATT_STATUS_ATTERR_APP_BEGIN + 2        /**< Reply when unsupported features are requested. */
@@ -68,7 +73,6 @@
 #define TOTAL_LINK_COUNT          CENTRAL_LINK_COUNT + PERIPHERAL_LINK_COUNT /**< Total number of links used by the application. */
 #define ELEMENTS_IN_MY_DATA_STRUCT		  7
 #define SLAVE_TYPE						'A'																										/**< The type slave, capital letter means it has a temp sensor*/ 
-
 
 #if (NRF_SD_BLE_API_VERSION == 3)
 #define NRF_BLE_MAX_MTU_SIZE    GATT_MTU_SIZE_DEFAULT           /**< MTU size used in the softdevice enabling and to reply to a BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST event. */
@@ -137,6 +141,7 @@ static SemaphoreHandle_t uart_mutex_tx;          //Mutex for the uart module.
 
 static QueueHandle_t uart_event_queue;
 static QueueHandle_t m_bus_adr_queue;
+static QueueHandle_t clock_hour;
 
 static TaskHandle_t m_ble_stack_thread;      /**< Definition of BLE stack thread. */
 static TaskHandle_t m_uart_stack_thread;     //Task for the uart thread.
@@ -144,6 +149,7 @@ static TaskHandle_t m_logger_thread;         /**< Definition of Logger thread. *
 static TaskHandle_t m_controller_task;        //Task that controlls everything.
 
 static TimerHandle_t m_bus_receiver_timer;   //Definition of the m_bus_receiver timer.
+static TimerHandle_t slave_off_timer;
 
 static uint8_t curr_connection = 0; // er det greit å bruke global variabel?
 
@@ -1114,8 +1120,137 @@ static void nus_c_init(void)
 		APP_ERROR_CHECK(err_code);
 	}
 	m_ble_nus_c_count = 0;
+}
+
+
+/**@brief Function for finding lowest priority slave that is still in ON state.
+ *
+ * @details 
+ *
+ * @param[out]   arg   If there is no slave in an active state 0xFF is returned, otherwise slave_lowest_priority is returned.
+ */
+uint8_t find_lowest_priority(void)
+{
+	uint8_t slave_lowest_priority =0xFF;
+	uint8_t lowest_diff =100;
+	uint8_t temp_diff;
 	
 	
+	for(int i; i<= CENTRAL_LINK_COUNT; i++)
+	{
+		if(1 <= slave_data[i].state)
+		{
+			temp_diff = slave_data[i].wanted_temp - slave_data[i].current_temp;
+			if(temp_diff < lowest_diff)
+			{
+				lowest_diff = temp_diff;
+				slave_lowest_priority = i;
+			}
+		}
+	}
+	if(0xFF == slave_lowest_priority)
+		NRF_LOG_INFO("Can not find any slaves in active modus \r\n");
+	
+	
+	return slave_lowest_priority;
+}
+
+
+/**@brief Function for finding highest priority slave that is in OFF state.
+ *
+ * @details 
+ *
+ * @param[out]   arg   If there is no slave in an off state 0xFF is returned, otherwise slave_lowest_priority is returned.
+ */
+uint8_t find_highest_priority(void)
+{
+	uint8_t slave_highest_priority =0xFF;
+	uint8_t highest_priority;
+	
+	for(int i; i<= CENTRAL_LINK_COUNT; i++)
+	{
+		if(100 > slave_data[i].state && slave_data[i].priority < highest_priority)
+		{
+				slave_highest_priority = i;
+				highest_priority = slave_data[i].priority;
+			
+		}
+	}
+	
+	if(0xFF == slave_highest_priority)
+		NRF_LOG_INFO("Can not find any slaves in active modus \r\n");
+			
+	
+	return slave_highest_priority;
+}
+
+
+/**@brief 
+ *
+ * @details 
+ *
+ * @param[in] xTimer Handler to the timer that called this function.
+ *                   You may get identifier given to the function xTimerCreate using pvTimerGetTimerID.
+ */
+static void slave_off_timer_receiver_timeout(TimerHandle_t xTimer)
+{
+	UNUSED_PARAMETER(xTimer);
+	static struct aMessage *my_rx_message;
+	uint8_t slave_nr = find_highest_priority();
+	uint32_t consume_diff;
+	
+  if(xQueueReceive(uart_event_queue, &(my_rx_message), ( TickType_t ) 10 ))
+	{
+		if(my_rx_message->Power  < PREFERRED_CONSUME_LIMIT)
+		{	
+			
+			if(slave_nr != 0xFF)
+			{
+				switch (slave_data[slave_nr].type)
+				{
+					case 'b':
+					break;
+							
+					case 'B':
+						slave_data[slave_nr].state = 100;				
+					break;
+					//Oven with temp sensor
+							
+					case 'c':					
+					break;
+					//Oven without temp sensor
+							
+					case 'C': 
+						consume_diff = PREFERRED_CONSUME_LIMIT - my_rx_message->Power;
+						if(consume_diff>(BOILER_KW))	
+						{
+							slave_data[slave_nr].state = 100;
+						}	
+						else 
+						{
+							slave_data[slave_nr].state = floor(((10*consume_diff)/BOILER_KW)*10); 
+						}		
+					//Boiler with temp sensor	
+					break;
+							
+					case 'D':					
+					break;
+							
+					default:
+					break;
+				
+				
+				}
+				send_data(slave_nr);
+			}
+		}else
+		{
+			if(pdPASS != xTimerStart(slave_off_timer, OSTIMER_WAIT_FOR_QUEUE))
+			{
+				APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+			}
+		}
+	}
 }
 
 
@@ -1123,15 +1258,90 @@ static void controller_task (void * arg)
 {
 	UNUSED_PARAMETER(arg);
 	static struct aMessage *my_rx_message;
+	static uint32_t consume_diff;
+	static uint8_t hour;
 	
+	static uint8_t boiler_kw = 2; // 2 KW
+	static uint8_t slave_nr;
+	static uint8_t lowest_priority_to_turn_off;
+	
+		
 	while(1)
 	{
 		if( uart_event_queue != 0 )
 		{
+				if(xQueueReceive(clock_hour, &(hour), ( TickType_t ) 10 ))
+				{}
+				
+
 				if(xQueueReceive(uart_event_queue, &(my_rx_message), ( TickType_t ) 10 ))
 				{
 					//NRF_LOG_INFO("Number: %i, Stat %0x, Voltage: %i\r\n", my_rx_message->Message_number, my_rx_message->STAT, my_rx_message->Voltage);
 					//NRF_LOG_INFO("Current: %i, Power: %i, Power tot: %i\r\n", my_rx_message->Current, my_rx_message->Power, my_rx_message->Total_power);
+					lowest_priority_to_turn_off =19;
+		
+					if((my_rx_message->Power > PREFERRED_CONSUME_LIMIT )||( 16 <= hour && 19 > hour )||( 6 <= hour && 8 > hour))
+					{
+						slave_nr = find_lowest_priority();
+							
+						if(my_rx_message->Power > NORMAL_MAX_CONSUME_LIMIT)
+						{
+							lowest_priority_to_turn_off = 9;
+								
+						}else if(my_rx_message->Power > MAX_CONSUME_LIMIT)
+						{
+							lowest_priority_to_turn_off = 1;
+						}
+							
+										
+						if( 0xFF != slave_nr && lowest_priority_to_turn_off < slave_data[slave_nr].priority)
+						{
+							switch (slave_data[slave_nr].type)
+							{
+								case 'b':
+								break;
+									
+								case 'B':
+									
+									slave_data[slave_nr].state = 0;
+																	
+								break;
+								//Oven with temp sensor
+									
+								case 'c':					
+								break;
+								//Oven without temp sensor
+									
+								case 'C': 
+									consume_diff = my_rx_message->Power - PREFERRED_CONSUME_LIMIT;
+									if(consume_diff > boiler_kw)	
+									{
+										slave_data[slave_nr].state = 0;
+									}	
+									else 
+									{
+										slave_data[slave_nr].state = floor(((10*consume_diff)/BOILER_KW)*10);  
+									}
+								//Boiler with temp sensor	
+								break;
+									
+								case 'D':	
+								// Temp sensor
+								break;
+									
+								default:
+								break;
+									
+							}
+								send_data(slave_nr);
+								if(pdPASS != xTimerStart(slave_off_timer, OSTIMER_WAIT_FOR_QUEUE))
+								{
+									APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+								}
+								
+						}
+							
+					}
 				}
 		}
 	}
@@ -1169,9 +1379,10 @@ static void db_discovery_init(void)
  */
 static void update_clock(void)
 {	
-static uint8_t hour = 10;
-static uint8_t minutes = 36;
-static uint8_t seconds =0;
+
+	static uint8_t hour = 10;
+	static uint8_t minutes = 36;
+	static uint8_t seconds =0;
 	
 	seconds++;
 	if(60<=seconds)
@@ -1192,7 +1403,8 @@ static uint8_t seconds =0;
 		}	
 		NRF_LOG_INFO("The time is: %02d:%02d \r\n",hour,minutes);
 
-	}		
+	}	
+		xQueueSend( clock_hour, ( void * ) &hour, ( TickType_t ) 100 );
 }
 
 
@@ -1928,7 +2140,7 @@ static void uart_stack_thread(void * arg)
 							myMessage->Partial_power = bcdtobyte(data_array[29]) + (100*bcdtobyte(data_array[30])) + (10000*bcdtobyte(data_array[31])) + (1000000*bcdtobyte(data_array[32])); //Og denne er koded i bcb. 
 							myMessage->Voltage = (data_array[38]) + (data_array[39]<<8);
 							myMessage->Current = data_array[45] + (data_array[46]<<8);
-							myMessage->Power = data_array[51] + (data_array[52]<<8);
+							myMessage->Power = (data_array[51] + (data_array[52]<<8))*10;
 							myMessage->Reactive_power = data_array[58] + (data_array[59]<<8);
 							
 							if( uart_event_queue != 0 )
@@ -2030,13 +2242,24 @@ int main(void)
     }
 		
 		m_bus_adr_queue = xQueueCreate (1, sizeof (uint8_t));
-		if (NULL == uart_event_queue)
+		if (NULL == m_bus_adr_queue)
+    {
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
+		clock_hour = xQueueCreate (1, sizeof (uint8_t));
+		if (NULL == clock_hour)
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
 		
     m_bus_receiver_timer = xTimerCreate("M_BUS", M_BUS_RECEIVER_INTERVAL, pdTRUE, NULL, m_bus_timer_receiver_timeout);
 		if(NULL == m_bus_receiver_timer)
+		{
+			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+		}
+		
+		slave_off_timer = xTimerCreate("Slave_off_state", SLAVE_OFF_INTERVAL, pdTRUE, NULL, slave_off_timer_receiver_timeout);
+		if(NULL == slave_off_timer)
 		{
 			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
 		}
@@ -2058,7 +2281,7 @@ int main(void)
 		{
 			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
 		}
-		if(pdPASS != xTaskCreate(controller_task, "controllertask", 256, NULL, 2, &m_controller_task))   //Init of the uart thread task
+		if(pdPASS != xTaskCreate(controller_task, "controllerntask", 256, NULL, 2, &m_controller_task))   //Init of the uart thread task
 		{
 			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
 		}
