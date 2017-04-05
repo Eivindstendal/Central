@@ -60,12 +60,7 @@ _build/nrf52832_xxaa_nrf_log_backend_serial.c.o: \
  c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\ctype.h \
  c:\sdk\external\segger_rtt\segger_rtt_conf.h \
  c:\sdk\external\segger_rtt\segger_rtt.h \
- c:\sdk\external\segger_rtt\SEGGER_RTT_Conf.h \
- c:\sdk\components\drivers_nrf\uart\nrf_drv_uart.h \
- c:\sdk\components\drivers_nrf\hal\nrf_uart.h \
- c:\sdk\components\drivers_nrf\hal\nrf_peripherals.h \
- c:\sdk\components\device\nrf52832_peripherals.h \
- c:\sdk\components\drivers_nrf\hal\nrf_uarte.h
+ c:\sdk\external\segger_rtt\SEGGER_RTT_Conf.h
 
 c:\sdk\components\libraries\util\sdk_common.h:
 
@@ -192,13 +187,3 @@ c:\sdk\external\segger_rtt\segger_rtt_conf.h:
 c:\sdk\external\segger_rtt\segger_rtt.h:
 
 c:\sdk\external\segger_rtt\SEGGER_RTT_Conf.h:
-
-c:\sdk\components\drivers_nrf\uart\nrf_drv_uart.h:
-
-c:\sdk\components\drivers_nrf\hal\nrf_uart.h:
-
-c:\sdk\components\drivers_nrf\hal\nrf_peripherals.h:
-
-c:\sdk\components\device\nrf52832_peripherals.h:
-
-c:\sdk\components\drivers_nrf\hal\nrf_uarte.h:

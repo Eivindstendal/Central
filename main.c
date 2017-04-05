@@ -99,6 +99,10 @@
 #define CLOCK_UPDATE_INT       1000
 #define ACK_WAIT_INTERVAL      3000
 
+#define M_BUS_RECEIVER_INTERVAL      		2000//10000                             
+#define OSTIMER_WAIT_FOR_QUEUE          	 10                              /**< Number of ticks to wait for the timer queue to be ready */
+
+
 /* For slave config*/
 #define DEVICE_NAME              		       "El_hub_central"  											  /**< Name of device. Will be included in the advertising data. */
 #define MIN_CONN_INTERVAL               MSEC_TO_UNITS(20, UNIT_1_25_MS)             /**< Minimum acceptable connection interval (20 ms), Connection interval uses 1.25 ms units. */
@@ -126,12 +130,19 @@ static ble_nus_t                m_nus;                                      /**<
 EventGroupHandle_t waiting_ack;
 
 static SemaphoreHandle_t m_ble_event_ready;  /**< Semaphore raised if there is a new event to be processed in the BLE thread. */
-static SemaphoreHandle_t m_uart_event_ready; //Semaphore raised if there is a new event to be processed in the uart thread
-static SemaphoreHandle_t uart_data;          //Mutex for the uart module. 
+static SemaphoreHandle_t uart_event_rx_ready; //Semaphore raised if there is a new event to be processed in the uart thread
+static SemaphoreHandle_t uart_mutex_tx;          //Mutex for the uart module. 
+
+
+static QueueHandle_t uart_event_queue;
+static QueueHandle_t m_bus_adr_queue;
 
 static TaskHandle_t m_ble_stack_thread;      /**< Definition of BLE stack thread. */
 static TaskHandle_t m_uart_stack_thread;     //Task for the uart thread.
 static TaskHandle_t m_logger_thread;         /**< Definition of Logger thread. */
+static TaskHandle_t m_controller_task;        //Task that controlls everything.
+
+static TimerHandle_t m_bus_receiver_timer;   //Definition of the m_bus_receiver timer.
 
 static uint8_t curr_connection = 0; // er det greit å bruke global variabel?
 
@@ -262,24 +273,26 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
  */
 void uart_event_handle(app_uart_evt_t * p_event)
 {
-    //static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
-    //static uint8_t index = 0;
+   
 
     switch (p_event->evt_type)
     {
         /**@snippet [Handling data from UART] */
         case APP_UART_DATA_READY:
-					
+							UNUSED_VARIABLE(xSemaphoreGiveFromISR(uart_event_rx_ready, NULL));
             break;
         /**@snippet [Handling data from UART] */
         case APP_UART_COMMUNICATION_ERROR:
-            APP_ERROR_HANDLER(p_event->data.error_communication);
+						NRF_LOG_INFO("Com error %0x,%i?\r\n\r\n\r\n", p_event->data.error_communication,p_event->data.error_communication);
+            APP_ERROR_HANDLER(p_event->data.error_communication);  //Her må det lages noe annet. 
             break;
 
         case APP_UART_FIFO_ERROR:
             APP_ERROR_HANDLER(p_event->data.error_code);
             break;
-
+				case APP_UART_TX_EMPTY:
+						//xSemaphoreGiveFromISR(uart_mutex_tx, NULL); Denne må ikke brukes. 
+						break;
         default:
             break;
     }
@@ -1071,8 +1084,8 @@ static void uart_init(void)
         .rts_pin_no   = RTS_PIN_NUMBER,
         .cts_pin_no   = CTS_PIN_NUMBER,
         .flow_control = APP_UART_FLOW_CONTROL_DISABLED,
-        .use_parity   = false,
-        .baud_rate    = UART_BAUDRATE_BAUDRATE_Baud9600
+        .use_parity   = true,
+        .baud_rate    = UART_BAUDRATE_BAUDRATE_Baud2400
       };
 
     APP_UART_FIFO_INIT(&comm_params,
@@ -1103,6 +1116,25 @@ static void nus_c_init(void)
 	m_ble_nus_c_count = 0;
 	
 	
+}
+
+
+static void controller_task (void * arg)
+{
+	UNUSED_PARAMETER(arg);
+	static struct aMessage *my_rx_message;
+	
+	while(1)
+	{
+		if( uart_event_queue != 0 )
+		{
+				if(xQueueReceive(uart_event_queue, &(my_rx_message), ( TickType_t ) 10 ))
+				{
+					//NRF_LOG_INFO("Number: %i, Stat %0x, Voltage: %i\r\n", my_rx_message->Message_number, my_rx_message->STAT, my_rx_message->Voltage);
+					//NRF_LOG_INFO("Current: %i, Power: %i, Power tot: %i\r\n", my_rx_message->Current, my_rx_message->Power, my_rx_message->Total_power);
+				}
+		}
+	}
 }
 
 
@@ -1588,10 +1620,7 @@ static void ble_stack_thread(void * arg)
 	buttons_leds_init(&erase_bonds);
 
 	
-	if (erase_bonds)
-    {
-        NRF_LOG_INFO("Bonds erased!\r\n");
-    }
+	
 		
 	UNUSED_VARIABLE(arg);
 		
@@ -1618,7 +1647,11 @@ static void ble_stack_thread(void * arg)
 	conn_params_init();
 	peer_manager_init(erase_bonds);
 	
-	
+	if (erase_bonds)
+    {
+        NRF_LOG_INFO("Bonds erased!\r\n");
+    }
+		
 	// Start scanning for peripherals and initiate connection
 		// with devices that advertise NUS UUID.
 		adv_scan_start();
@@ -1643,15 +1676,221 @@ static void ble_stack_thread(void * arg)
     }
 }
 
+
 static void uart_stack_thread(void * arg)
 {
 	UNUSED_PARAMETER(arg);
-
-	//for(;;)
+	
+	static struct aMessage *myMessage;
+	static uint32_t message_counter = 0;
+	static uint8_t data_array[62];
+	static uint8_t counter = 0;
+	static uart_event_states m_uart_event_states = RESET_ACC;
+	static last_uart_event_states last_m_uart_event_state = LAST_RESET_ACC;
+	static uint8_t adr_of_m_bus = 0;
 	while(1)
 	{
-		//Do something cool 
-		 vTaskSuspend(NULL);
+		
+		switch(m_uart_event_states)
+		{
+			case INIT_M_BUS_STATE:
+				
+				if(xSemaphoreTake(uart_mutex_tx, 500) == pdTRUE)
+				{
+						m_bus_receiver_init(adr_of_m_bus); //Initialice the m-bus receiver
+						NRF_LOG_INFO("INIT %i\r\n", adr_of_m_bus);
+						if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
+						{
+                // We would not expect this call to fail because we must have
+                // obtained the semaphore to get here.
+						}
+						last_m_uart_event_state = LAST_INIT_M_BUS_STATE;
+						m_uart_event_states = WAITING_RESPONSE_STATE;
+				}
+				
+				else
+				{
+					m_uart_event_states = INIT_M_BUS_STATE;
+				}
+				
+				break;
+				
+				case RESET_ACC: //Resetting the device. Start up state. 
+				if(xSemaphoreTake(uart_mutex_tx, 500 ) == pdTRUE)
+				{
+						//NRF_LOG_INFO("RESET %i\r\n", adr_of_m_bus);
+						m_bus_receiver_reset_application(adr_of_m_bus); //Resetting the m-bus receiver
+						if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
+						{
+                // We would not expect this call to fail because we must have
+                // obtained the semaphore to get here.
+						}
+						last_m_uart_event_state = LAST_RESET_ACC;
+						m_uart_event_states = WAITING_RESPONSE_STATE;
+				}
+				
+				else
+				{
+					m_uart_event_states = RESET_ACC;
+				}
+				break;
+	
+			case RESET_PARTIAL_STATE:
+				
+				if(xSemaphoreTake(uart_mutex_tx, 500 ) == pdTRUE)
+				{
+						m_bus_receiver_reset_partial_power(adr_of_m_bus); //Initialice the m-bus receiver
+						
+						if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
+						{
+                // We would not expect this call to fail because we must have
+                // obtained the semaphore to get here.
+						}
+						last_m_uart_event_state = LAST_RESET_PARTIAL_STATE;
+						m_uart_event_states = WAITING_RESPONSE_STATE;
+						
+				}
+				
+				else
+				{
+					m_uart_event_states = RESET_PARTIAL_STATE;
+				}
+				break;
+			
+			case WAITING_RESPONSE_STATE:
+
+						switch(last_m_uart_event_state)
+						{
+							case LAST_INIT_M_BUS_STATE:
+								
+								if(xSemaphoreTake(uart_event_rx_ready, 100) ==pdTRUE )
+								{
+									if(response_from_m_bus(RESPONSE_INIT))
+									{
+										if (pdPASS == xTimerStart(m_bus_receiver_timer, OSTIMER_WAIT_FOR_QUEUE))
+										{
+											if( m_bus_adr_queue != 0 )
+											{
+												xQueueSend( m_bus_adr_queue, ( void * ) &adr_of_m_bus, ( TickType_t ) 100 );
+											}
+											else
+											{
+												m_uart_event_states = INIT_M_BUS_STATE;
+												break;
+											}
+										}
+										else
+										{
+											APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+										}
+										
+										m_uart_event_states = READING_M_BUS_RESPONSE;
+									}
+									else
+									{
+										m_uart_event_states = INIT_M_BUS_STATE;
+									}
+								}
+								
+								else
+								{
+									m_uart_event_states = INIT_M_BUS_STATE;
+								}
+								break;
+
+								
+							case LAST_RESET_ACC:
+								
+								if(xSemaphoreTake(uart_event_rx_ready, 100) ==pdTRUE )
+								{
+									if(response_from_m_bus(RESPONSE_RESET_ACC))
+									{
+										m_uart_event_states = INIT_M_BUS_STATE;
+										
+									}
+									else
+									{
+										adr_of_m_bus++;
+										m_uart_event_states = RESET_ACC;
+									}
+								}
+								else
+								{
+									adr_of_m_bus++;
+									m_uart_event_states = RESET_ACC;
+								}
+								break;
+								
+								
+								
+							case LAST_RESET_PARTIAL_STATE:
+								if(xSemaphoreTake(uart_event_rx_ready, 500) ==pdTRUE )
+								{
+									
+									if(response_from_m_bus(RESPONSE_RESET_PARTIAL))
+									{
+										m_uart_event_states = READING_M_BUS_RESPONSE;
+									}
+									else
+									{
+										m_uart_event_states = RESET_PARTIAL_STATE;
+									}
+								}
+								else
+								{
+									m_uart_event_states = RESET_PARTIAL_STATE;
+								}
+								break;
+							default:
+								break;
+						}
+				//vTaskDelay(10);
+				break;
+			
+			case READING_M_BUS_RESPONSE: //Inne her må det skrives om litt. Må ha en sjekk før en teller opp til 61 tror jeg. Kanskje best å vente på 0x16?
+				if(xSemaphoreTake(uart_event_rx_ready,portMAX_DELAY) ==pdTRUE )
+				{
+					UNUSED_VARIABLE(app_uart_get(&data_array[counter]));
+					//if(data_array[0] == RESPONSE_START_FIELD)
+					if(counter == 61)
+					{
+						if(data_array[0]!=RESPONSE_START_FIELD && data_array[1]!=RESPONSE_L_READ && data_array[2]!= RESPONSE_L_READ && data_array[61] != RESPONSE_STOP_FIELD)
+						{
+							while(app_uart_flush() !=NRF_SUCCESS);
+							counter = 0; 
+						}
+						else
+						{
+							myMessage->Message_number = message_counter++;
+							myMessage->STAT = data_array[16];
+							
+							myMessage->Total_power = bcdtobyte(data_array[22]) + (100*bcdtobyte(data_array[23])) + (10000*bcdtobyte(data_array[24])) + (1000000*bcdtobyte(data_array[25]));  //Denne 
+							myMessage->Partial_power = bcdtobyte(data_array[29]) + (100*bcdtobyte(data_array[30])) + (10000*bcdtobyte(data_array[31])) + (1000000*bcdtobyte(data_array[32])); //Og denne er koded i bcb. 
+							myMessage->Voltage = (data_array[38]) + (data_array[39]<<8);
+							myMessage->Current = data_array[45] + (data_array[46]<<8);
+							myMessage->Power = data_array[51] + (data_array[52]<<8);
+							myMessage->Reactive_power = data_array[58] + (data_array[59]<<8);
+							
+							if( uart_event_queue != 0 )
+							{
+								myMessage = &xMessage;
+								xQueueSend( uart_event_queue, ( void * ) &myMessage, ( TickType_t ) 0 );
+							}
+							counter = 0;
+						}
+						vTaskDelay(1);
+						break;
+					}
+					counter++;
+				}
+				vTaskDelay(1);
+				break;
+						
+			default:
+				vTaskDelay(1);
+				break;
+			}
+		
 	}
 }
 
@@ -1710,15 +1949,15 @@ int main(void)
     }
 		
 		//Init a semaphore for the Uart thread
-		m_uart_event_ready = xSemaphoreCreateBinary();
-		if (NULL == m_uart_event_ready)
+		uart_event_rx_ready = xSemaphoreCreateBinary();
+		if (NULL == uart_event_rx_ready)
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
 		
 		//Init a mutex for the uart data module/thread. 
-		uart_data = xSemaphoreCreateMutex();
-		if (NULL == uart_data)
+		uart_mutex_tx = xSemaphoreCreateMutex();
+		if (NULL == uart_mutex_tx)
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
@@ -1739,6 +1978,10 @@ int main(void)
     }
 		
 		if(pdPASS != xTaskCreate(uart_stack_thread, "UART", 256, NULL, 2, &m_uart_stack_thread))   //Init of the uart thread task
+		{
+			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+		}
+		if(pdPASS != xTaskCreate(controller_task, "controllertask", 256, NULL, 2, &m_controller_task))   //Init of the uart thread task
 		{
 			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
 		}
