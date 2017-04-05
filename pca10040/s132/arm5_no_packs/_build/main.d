@@ -83,9 +83,10 @@
 .\_build\main.o: ..\..\..\..\..\..\external\freertos\portable\ARM\nrf52\portmacro.h
 .\_build\main.o: ..\..\..\..\..\..\external\freertos\portable\CMSIS\nrf52\portmacro_cmsis.h
 .\_build\main.o: ..\..\..\..\..\..\external\freertos\source\include\mpu_wrappers.h
+.\_build\main.o: ..\..\..\..\..\..\external\freertos\source\include\event_groups.h
+.\_build\main.o: ..\..\..\..\..\..\external\freertos\source\include\timers.h
 .\_build\main.o: ..\..\..\..\..\..\external\freertos\source\include\task.h
 .\_build\main.o: ..\..\..\..\..\..\external\freertos\source\include\list.h
-.\_build\main.o: ..\..\..\..\..\..\external\freertos\source\include\timers.h
 .\_build\main.o: ..\..\..\..\..\..\external\freertos\source\include\semphr.h
 .\_build\main.o: ..\..\..\..\..\..\external\freertos\source\include\queue.h
 .\_build\main.o: ..\..\..\..\..\..\components\libraries\fds\fds.h

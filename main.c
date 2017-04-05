@@ -1200,9 +1200,7 @@ static uint8_t seconds =0;
  */
 static void timer_handler(void * p_context)
 {	
-		
     update_clock();
-	
 }
 
 
@@ -1572,7 +1570,7 @@ static void pm_evt_handler(pm_evt_t const * p_evt)
         case PM_EVT_SERVICE_CHANGED_IND_CONFIRMED:
         default:
             break;
-    }
+    }NRF_LOG_FLUSH();
 }
 
 /**@brief Function for the Peer Manager initialization.
@@ -1676,6 +1674,68 @@ static void ble_stack_thread(void * arg)
     }
 }
 
+/**@brief 
+ *
+ * @details 
+ *
+ * @param[in] xTimer Handler to the timer that called this function.
+ *                   You may get identifier given to the function xTimerCreate using pvTimerGetTimerID.
+ */
+static void m_bus_timer_receiver_timeout(TimerHandle_t xTimer)
+{
+  UNUSED_PARAMETER(xTimer);
+	static uint8_t adr_of_mbus=0;
+	//NRF_LOG_INFO("Timout %i\r\n", adr_of_mbus);
+
+	if(m_bus_adr_queue!=0)
+	{
+		if(xQueueReceiveFromISR(m_bus_adr_queue, &(adr_of_mbus), NULL ))
+		{
+						
+			if(xSemaphoreTake(uart_mutex_tx, (( TickType_t ) 10 ) == pdTRUE))
+			{
+
+				m_bus_send_request(adr_of_mbus, C_FIELD_FCB_NOT_SET_REQUEST);
+							//SEGGER_RTT_WriteString(0,"Sendt, 	Her?");
+				if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
+				{
+						 // We would not expect this call to fail because we must have
+						 // obtained the semaphore to get here.
+				}
+			}
+		}
+		else
+		{
+						
+			if(xSemaphoreTake(uart_mutex_tx, (( TickType_t ) 10 ) == pdTRUE))
+			{
+				m_bus_send_request(adr_of_mbus, C_FIELD_FCB_NOT_SET_REQUEST);
+							//SEGGER_RTT_WriteString(0,"Sendt, 	Her?");
+				if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
+				{
+						 // We would not expect this call to fail because we must have
+						 // obtained the semaphore to get here.
+				}
+			}
+		}
+	}
+
+	else
+	{ 
+		if(xSemaphoreTake(uart_mutex_tx, (( TickType_t ) 10 ) == pdTRUE))
+		{
+			m_bus_send_request((uint8_t) adr_of_mbus, C_FIELD_FCB_NOT_SET_REQUEST);
+			
+			if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
+			{
+           // We would not expect this call to fail because we must have
+           // obtained the semaphore to get here.
+			}
+		}
+	}
+}
+
+
 
 static void uart_stack_thread(void * arg)
 {
@@ -1763,7 +1823,7 @@ static void uart_stack_thread(void * arg)
 						{
 							case LAST_INIT_M_BUS_STATE:
 								
-								if(xSemaphoreTake(uart_event_rx_ready, 100) ==pdTRUE )
+								if(xSemaphoreTake(uart_event_rx_ready, 500) ==pdTRUE )
 								{
 									if(response_from_m_bus(RESPONSE_INIT))
 									{
@@ -1801,7 +1861,7 @@ static void uart_stack_thread(void * arg)
 								
 							case LAST_RESET_ACC:
 								
-								if(xSemaphoreTake(uart_event_rx_ready, 100) ==pdTRUE )
+								if(xSemaphoreTake(uart_event_rx_ready, 500) ==pdTRUE )
 								{
 									if(response_from_m_bus(RESPONSE_RESET_ACC))
 									{
@@ -1934,7 +1994,7 @@ int main(void)
 {
 	
     
-	ret_code_t err_code;
+		ret_code_t err_code;
     err_code = nrf_drv_clock_init();
     APP_ERROR_CHECK(err_code);
 		
@@ -1968,7 +2028,24 @@ int main(void)
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
-    
+		
+		m_bus_adr_queue = xQueueCreate (1, sizeof (uint8_t));
+		if (NULL == uart_event_queue)
+    {
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
+		
+    m_bus_receiver_timer = xTimerCreate("M_BUS", M_BUS_RECEIVER_INTERVAL, pdTRUE, NULL, m_bus_timer_receiver_timeout);
+		if(NULL == m_bus_receiver_timer)
+		{
+			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+		}
+		
+		uart_event_queue = xQueueCreate (1, sizeof(struct aMessage * ));
+		if (NULL == uart_event_queue)
+    {
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
 
 
     // Start execution.
