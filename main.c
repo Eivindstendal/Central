@@ -44,6 +44,7 @@
 #include "bsp.h"
 #include "bsp_btn_ble.h"
 #include "FreeRTOS.h"
+#include "event_groups.h"
 #include "task.h"
 #include "timers.h"
 #include "semphr.h"
@@ -120,8 +121,9 @@ static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];           
 static uint8_t           		m_ble_nus_c_count;  
 static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};  /**< Universally unique service identifier. */
 static ble_nus_t                m_nus;                                      /**< Structure to identify the Nordic UART Service. */
-bool waiting_ack[CENTRAL_LINK_COUNT];
+//bool waiting_ack[CENTRAL_LINK_COUNT];  // Må endres til en semaphore
 
+EventGroupHandle_t waiting_ack;
 
 static SemaphoreHandle_t m_ble_event_ready;  /**< Semaphore raised if there is a new event to be processed in the BLE thread. */
 static SemaphoreHandle_t m_uart_event_ready; //Semaphore raised if there is a new event to be processed in the uart thread
@@ -131,7 +133,7 @@ static TaskHandle_t m_ble_stack_thread;      /**< Definition of BLE stack thread
 static TaskHandle_t m_uart_stack_thread;     //Task for the uart thread.
 static TaskHandle_t m_logger_thread;         /**< Definition of Logger thread. */
 
-static uint8_t curr_connection = 0;
+static uint8_t curr_connection = 0; // er det greit å bruke global variabel?
 
 
 static const char m_target_periph_name[] = "7dk29kshnsdc";          /**< If you want to connect to a peripheral using a given advertising name, type its name here. */
@@ -227,7 +229,7 @@ static void scan_start(void)
 
     ret = bsp_indication_set(BSP_INDICATE_SCANNING);
     APP_ERROR_CHECK(ret);
-		NRF_LOG_INFO("Uart_c Scan started\r\n");
+		NRF_LOG_INFO("Uart c Scan started\r\n");
 }
 
 
@@ -293,6 +295,7 @@ bool send_data(uint8_t slave_nr)
 		
 	uint8_t data[ELEMENTS_IN_MY_DATA_STRUCT];
 	uint32_t err_code;
+	EventBits_t bits = xEventGroupGetBits(waiting_ack);
 	
 	data[0] = SLAVE_TYPE;
 	data[1] = slave_data[slave_nr].address;
@@ -301,8 +304,8 @@ bool send_data(uint8_t slave_nr)
 	data[4] = slave_data[slave_nr].wanted_temp;
 	data[5] = slave_data[slave_nr].current_temp;
 	data[6] = slave_data[slave_nr].priority;
-	
-	if(true == waiting_ack[slave_nr])
+		
+	if(1 == (bits & (1 << slave_nr)))// checking if we are waiting on ack    // if(true == waiting_ack[slave_nr])							
 	{		
 		NRF_LOG_INFO("	Sending not complete, waiting on ack\r\n");
 		return false;
@@ -315,7 +318,8 @@ bool send_data(uint8_t slave_nr)
 	if(err_code == NRF_SUCCESS )
 	{
 			NRF_LOG_INFO("	sending complete \n\r");
-					waiting_ack[slave_nr]= true;
+					//waiting_ack[slave_nr]= true;
+					xEventGroupSetBits(waiting_ack, 1 << slave_nr );		
 					err_code = app_timer_start(ack_timer, 
 															 APP_TIMER_TICKS(ACK_WAIT_INTERVAL, 
 															 APP_TIMER_PRESCALER),
@@ -432,11 +436,14 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 						{
 							send_ack(curr_connection);
 														
-						}else if(1== p_ble_nus_evt->p_data[2])
+						}
+						else if(1== p_ble_nus_evt->p_data[2])
 						{
+							
 							NRF_LOG_INFO("ack recieved \r\n");
 							app_timer_stop(ack_timer);
-							waiting_ack[curr_connection] = false;
+							//waiting_ack[curr_connection] = false;
+							xEventGroupClearBits(waiting_ack, 1 << curr_connection );												
 						}
 					}					
 						print_slave_data();
@@ -1171,9 +1178,13 @@ static void timer_handler(void * p_context)
  */
 static void ack_timer_handler(void * p_context)
 {	
+	EventBits_t bits = xEventGroupGetBits(waiting_ack);
+	
 	for(int i =0; i<=PERIPHERAL_LINK_COUNT;i++ )
-		if(true == waiting_ack[i])
-			send_data(i);
+	{
+		if(1 == (bits & (1 << i)))					//if(true == waiting_ack[i])
+			send_data(i);			
+	}
 }
 
 
@@ -1280,8 +1291,6 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
 						
 	if('s'==p_data[0]&&'l'==p_data[1]&& 'a'== p_data[2]&& 'v'==p_data[3]&& 'e'== p_data[4])
 	{
-		
-		
 		slave_nr = (p_data[5]-'0')*10 + (p_data[6]-'0');
 		temp = (p_data[7]-'0')*10 + (p_data[8]-'0');
 		NRF_LOG_INFO("slave_nr: %d temp: %d \r\n",slave_nr,temp);
@@ -1290,7 +1299,7 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
 			slave_data[slave_nr].wanted_temp = -temp;
 		}else
 			slave_data[slave_nr].wanted_temp = temp;
-		
+				
 		send_data(slave_nr);
 		
 	}
@@ -1613,6 +1622,7 @@ static void ble_stack_thread(void * arg)
 	// Start scanning for peripherals and initiate connection
 		// with devices that advertise NUS UUID.
 		adv_scan_start();
+		
  
 
 
@@ -1712,6 +1722,14 @@ int main(void)
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
+		
+		waiting_ack = xEventGroupCreate();
+    /* Was the event group created successfully? */
+    if( waiting_ack == NULL )
+    {
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
+    
 
 
     // Start execution.

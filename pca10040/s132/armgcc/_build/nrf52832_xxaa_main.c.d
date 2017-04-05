@@ -116,10 +116,12 @@ _build/nrf52832_xxaa_main.c.o: ../../../main.c \
  c:\sdk\external\freertos\portable\gcc\nrf52\portmacro.h \
  c:\sdk\external\freertos\portable\cmsis\nrf52\portmacro_cmsis.h \
  c:\sdk\external\freertos\source\include\mpu_wrappers.h \
- c:\sdk\external\freertos\source\include\task.h \
- c:\sdk\external\freertos\source\include\list.h \
+ c:\sdk\external\freertos\source\include\event_groups.h \
  c:\sdk\external\freertos\source\include\timers.h \
  c:\sdk\external\freertos\source\include\task.h \
+ c:\sdk\external\freertos\source\include\list.h \
+ c:\sdk\external\freertos\source\include\task.h \
+ c:\sdk\external\freertos\source\include\timers.h \
  c:\sdk\external\freertos\source\include\semphr.h \
  c:\sdk\external\freertos\source\include\queue.h \
  c:\sdk\components\libraries\fds\fds.h \
@@ -375,13 +377,17 @@ c:\sdk\external\freertos\portable\cmsis\nrf52\portmacro_cmsis.h:
 
 c:\sdk\external\freertos\source\include\mpu_wrappers.h:
 
-c:\sdk\external\freertos\source\include\task.h:
-
-c:\sdk\external\freertos\source\include\list.h:
+c:\sdk\external\freertos\source\include\event_groups.h:
 
 c:\sdk\external\freertos\source\include\timers.h:
 
 c:\sdk\external\freertos\source\include\task.h:
+
+c:\sdk\external\freertos\source\include\list.h:
+
+c:\sdk\external\freertos\source\include\task.h:
+
+c:\sdk\external\freertos\source\include\timers.h:
 
 c:\sdk\external\freertos\source\include\semphr.h:
 
