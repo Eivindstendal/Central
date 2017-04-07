@@ -103,3 +103,7 @@
 .\_build\main.o: ..\..\..\..\..\..\components\libraries\log\nrf_log_ctrl.h
 .\_build\main.o: ..\..\..\..\..\..\components\libraries\log\src\nrf_log_ctrl_internal.h
 .\_build\main.o: ..\..\..\m_bus_receiver.h
+.\_build\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\math.h
+.\_build\main.o: ..\..\..\..\..\..\external\segger_rtt\SEGGER_RTT.h
+.\_build\main.o: ..\..\..\..\..\..\external\segger_rtt\SEGGER_RTT_Conf.h
+.\_build\main.o: ..\..\..\..\..\..\external\segger_rtt\SEGGER_RTT_printf.c

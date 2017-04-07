@@ -38,10 +38,11 @@ Section Cross References
     main.o(i.ble_nus_c_evt_handler) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
     main.o(i.ble_nus_c_evt_handler) refers to ble_nus_c.o(i.ble_nus_c_rx_notif_enable) for ble_nus_c_rx_notif_enable
     main.o(i.ble_nus_c_evt_handler) refers to bsp.o(i.bsp_indication_set) for bsp_indication_set
+    main.o(i.ble_nus_c_evt_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
     main.o(i.ble_nus_c_evt_handler) refers to main.o(i.send_ack) for send_ack
     main.o(i.ble_nus_c_evt_handler) refers to app_timer_freertos.o(i.app_timer_stop) for app_timer_stop
     main.o(i.ble_nus_c_evt_handler) refers to event_groups.o(i.xEventGroupClearBits) for xEventGroupClearBits
-    main.o(i.ble_nus_c_evt_handler) refers to main.o(i.print_slave_data) for print_slave_data
+    main.o(i.ble_nus_c_evt_handler) refers to main.o(i.print_data) for print_data
     main.o(i.ble_nus_c_evt_handler) refers to main.o(.data) for .data
     main.o(i.ble_nus_c_evt_handler) refers to main.o(.bss) for .bss
     main.o(i.ble_nus_c_evt_handler) refers to main.o(.constdata) for .constdata
@@ -95,12 +96,27 @@ Section Cross References
     main.o(i.bsp_event_handler) refers to main.o(i.sleep_mode_enter) for sleep_mode_enter
     main.o(i.conn_params_error_handler) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
     main.o(i.controller_task) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
+    main.o(i.controller_task) refers to segger_rtt.o(i.SEGGER_RTT_WriteString) for SEGGER_RTT_WriteString
+    main.o(i.controller_task) refers to main.o(i.find_lowest_priority) for find_lowest_priority
+    main.o(i.controller_task) refers to dfltui.o(.text) for __aeabi_ui2d
+    main.o(i.controller_task) refers to floor.o(i.__hardfp_floor) for __hardfp_floor
+    main.o(i.controller_task) refers to dfixui.o(.text) for __aeabi_d2uiz
+    main.o(i.controller_task) refers to main.o(i.send_data) for send_data
+    main.o(i.controller_task) refers to tasks.o(i.xTaskGetTickCount) for xTaskGetTickCount
+    main.o(i.controller_task) refers to timers.o(i.xTimerGenericCommand) for xTimerGenericCommand
+    main.o(i.controller_task) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
+    main.o(i.controller_task) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
+    main.o(i.controller_task) refers to main.o(.bss) for .bss
     main.o(i.controller_task) refers to main.o(.data) for .data
     main.o(i.db_disc_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_2) for nrf_log_frontend_std_2
     main.o(i.db_disc_handler) refers to ble_nus_c.o(i.ble_nus_c_on_db_disc_evt) for ble_nus_c_on_db_disc_evt
     main.o(i.db_disc_handler) refers to main.o(.conststring) for .conststring
     main.o(i.db_disc_handler) refers to main.o(.bss) for .bss
     main.o(i.db_disc_handler) refers to main.o(.data) for .data
+    main.o(i.find_highest_priority) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
+    main.o(i.find_highest_priority) refers to main.o(.bss) for .bss
+    main.o(i.find_lowest_priority) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
+    main.o(i.find_lowest_priority) refers to main.o(.bss) for .bss
     main.o(i.logger_thread) refers to nrf_log_frontend.o(i.nrf_log_frontend_dequeue) for nrf_log_frontend_dequeue
     main.o(i.logger_thread) refers to tasks.o(i.vTaskSuspend) for vTaskSuspend
     main.o(i.m_bus_timer_receiver_timeout) refers to queue.o(i.xQueueReceiveFromISR) for xQueueReceiveFromISR
@@ -118,6 +134,7 @@ Section Cross References
     main.o(i.main) refers to tasks.o(i.vTaskStartScheduler) for vTaskStartScheduler
     main.o(i.main) refers to main.o(.data) for .data
     main.o(i.main) refers to main.o(i.m_bus_timer_receiver_timeout) for m_bus_timer_receiver_timeout
+    main.o(i.main) refers to main.o(i.slave_off_timer_receiver_timeout) for slave_off_timer_receiver_timeout
     main.o(i.main) refers to main.o(i.ble_stack_thread) for ble_stack_thread
     main.o(i.main) refers to main.o(i.uart_stack_thread) for uart_stack_thread
     main.o(i.main) refers to main.o(i.controller_task) for controller_task
@@ -158,8 +175,12 @@ Section Cross References
     main.o(i.pm_evt_handler) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
     main.o(i.pm_evt_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_dequeue) for nrf_log_frontend_dequeue
     main.o(i.pm_evt_handler) refers to main.o(.conststring) for .conststring
-    main.o(i.print_slave_data) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
-    main.o(i.print_slave_data) refers to main.o(.bss) for .bss
+    main.o(i.print_data) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
+    main.o(i.print_data) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
+    main.o(i.print_data) refers to printf8.o(i.__0sprintf$8) for __2sprintf
+    main.o(i.print_data) refers to segger_rtt.o(i.SEGGER_RTT_WriteString) for SEGGER_RTT_WriteString
+    main.o(i.print_data) refers to main.o(.data) for .data
+    main.o(i.print_data) refers to main.o(.bss) for .bss
     main.o(i.scan_start) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
     main.o(i.scan_start) refers to bsp.o(i.bsp_indication_set) for bsp_indication_set
     main.o(i.scan_start) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
@@ -178,6 +199,17 @@ Section Cross References
     main.o(i.send_data) refers to main.o(.data) for .data
     main.o(i.send_data) refers to main.o(.bss) for .bss
     main.o(i.send_data) refers to main.o(.constdata) for .constdata
+    main.o(i.slave_off_timer_receiver_timeout) refers to main.o(i.find_highest_priority) for find_highest_priority
+    main.o(i.slave_off_timer_receiver_timeout) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
+    main.o(i.slave_off_timer_receiver_timeout) refers to dfltui.o(.text) for __aeabi_ui2d
+    main.o(i.slave_off_timer_receiver_timeout) refers to floor.o(i.__hardfp_floor) for __hardfp_floor
+    main.o(i.slave_off_timer_receiver_timeout) refers to dfixui.o(.text) for __aeabi_d2uiz
+    main.o(i.slave_off_timer_receiver_timeout) refers to main.o(i.send_data) for send_data
+    main.o(i.slave_off_timer_receiver_timeout) refers to tasks.o(i.xTaskGetTickCount) for xTaskGetTickCount
+    main.o(i.slave_off_timer_receiver_timeout) refers to timers.o(i.xTimerGenericCommand) for xTimerGenericCommand
+    main.o(i.slave_off_timer_receiver_timeout) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
+    main.o(i.slave_off_timer_receiver_timeout) refers to main.o(.data) for .data
+    main.o(i.slave_off_timer_receiver_timeout) refers to main.o(.bss) for .bss
     main.o(i.sleep_mode_enter) refers to bsp.o(i.bsp_indication_set) for bsp_indication_set
     main.o(i.sleep_mode_enter) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
     main.o(i.sleep_mode_enter) refers to bsp_btn_ble.o(i.bsp_btn_ble_sleep_mode_prepare) for bsp_btn_ble_sleep_mode_prepare
@@ -202,8 +234,10 @@ Section Cross References
     main.o(i.uart_stack_thread) refers to m_bus_receiver.o(i.bcdtobyte) for bcdtobyte
     main.o(i.uart_stack_thread) refers to main.o(.bss) for .bss
     main.o(i.uart_stack_thread) refers to main.o(.data) for .data
-    main.o(i.update_clock) refers to main.o(i.print_slave_data) for print_slave_data
+    main.o(i.update_clock) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
+    main.o(i.update_clock) refers to main.o(i.print_data) for print_data
     main.o(i.update_clock) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_2) for nrf_log_frontend_std_2
+    main.o(i.update_clock) refers to segger_rtt.o(i.SEGGER_RTT_WriteString) for SEGGER_RTT_WriteString
     main.o(i.update_clock) refers to main.o(.data) for .data
     main.o(i.vApplicationIdleHook) refers to tasks.o(i.vTaskResume) for vTaskResume
     main.o(i.vApplicationIdleHook) refers to main.o(.data) for .data
@@ -2022,6 +2056,13 @@ Section Cross References
     arm_startup_nrf52.o(.text) refers to entry.o(.ARM.Collect$$$$00000000) for __main
     system_nrf52.o(i.SystemCoreClockUpdate) refers to system_nrf52.o(.data) for .data
     system_nrf52.o(i.SystemInit) refers to system_nrf52.o(.data) for .data
+    floor.o(i.__hardfp_floor) refers (Special) to iusefp.o(.text) for __I$use$fp
+    floor.o(i.__hardfp_floor) refers to dadd.o(.text) for __aeabi_dadd
+    floor.o(i.__hardfp_floor) refers to cdrcmple.o(.text) for __aeabi_cdrcmple
+    floor.o(i.__softfp_floor) refers (Special) to iusefp.o(.text) for __I$use$fp
+    floor.o(i.__softfp_floor) refers to floor.o(i.__hardfp_floor) for __hardfp_floor
+    floor.o(i.floor) refers (Special) to iusefp.o(.text) for __I$use$fp
+    floor.o(i.floor) refers to floor.o(i.__hardfp_floor) for __hardfp_floor
     entry.o(.ARM.Collect$$$$00000000) refers (Special) to entry10a.o(.ARM.Collect$$$$0000000D) for __rt_final_cpp
     entry.o(.ARM.Collect$$$$00000000) refers (Special) to entry11a.o(.ARM.Collect$$$$0000000F) for __rt_final_exit
     entry.o(.ARM.Collect$$$$00000000) refers (Special) to entry7b.o(.ARM.Collect$$$$00000008) for _main_clock
@@ -2279,6 +2320,10 @@ Section Cross References
     printfa.o(i._printf_pre_padding) refers (Special) to iusefp.o(.text) for __I$use$fp
     printfa.o(i._snputc) refers (Special) to iusefp.o(.text) for __I$use$fp
     printfa.o(i._sputc) refers (Special) to iusefp.o(.text) for __I$use$fp
+    dfltui.o(.text) refers (Special) to iusefp.o(.text) for __I$use$fp
+    dfltui.o(.text) refers to depilogue.o(.text) for _double_epilogue
+    dfixui.o(.text) refers (Special) to iusefp.o(.text) for __I$use$fp
+    dfixui.o(.text) refers to llushr.o(.text) for __aeabi_llsr
     entry2.o(.ARM.Collect$$$$00000001) refers to entry2.o(.ARM.Collect$$$$00002712) for __lit__00000000
     entry2.o(.ARM.Collect$$$$00002712) refers to arm_startup_nrf52.o(STACK) for __initial_sp
     entry2.o(__vectab_stack_and_reset_area) refers to arm_startup_nrf52.o(STACK) for __initial_sp
@@ -2290,6 +2335,8 @@ Section Cross References
     fputc.o(i.fputc) refers (Special) to semi.o(.text) for __semihosting_library_function
     uldiv.o(.text) refers to llushr.o(.text) for __aeabi_llsr
     uldiv.o(.text) refers to llshl.o(.text) for __aeabi_llsl
+    depilogue.o(.text) refers to llshl.o(.text) for __aeabi_llsl
+    depilogue.o(.text) refers to llushr.o(.text) for __aeabi_llsr
     dadd.o(.text) refers to llshl.o(.text) for __aeabi_llsl
     dadd.o(.text) refers to llsshr.o(.text) for __aeabi_lasr
     dadd.o(.text) refers to depilogue.o(.text) for _double_epilogue
@@ -2298,6 +2345,4 @@ Section Cross References
     dfixul.o(.text) refers to llushr.o(.text) for __aeabi_llsr
     dfixul.o(.text) refers to llshl.o(.text) for __aeabi_llsl
     init.o(.text) refers to entry5.o(.ARM.Collect$$$$00000004) for __main_after_scatterload
-    depilogue.o(.text) refers to llshl.o(.text) for __aeabi_llsl
-    depilogue.o(.text) refers to llushr.o(.text) for __aeabi_llsr
 
