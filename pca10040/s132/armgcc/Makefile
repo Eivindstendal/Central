@@ -255,6 +255,7 @@ ASMFLAGS += -DNRF52_PAN_55
 ASMFLAGS += -DNRF52_PAN_20
 ASMFLAGS += -DS132
 
+
 # Linker flags
 LDFLAGS += -mthumb -mabi=aapcs -L $(TEMPLATE_PATH) -T$(LINKER_SCRIPT)
 LDFLAGS += -mcpu=cortex-m4

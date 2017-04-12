@@ -106,4 +106,3 @@
 .\_build\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\math.h
 .\_build\main.o: ..\..\..\..\..\..\external\segger_rtt\SEGGER_RTT.h
 .\_build\main.o: ..\..\..\..\..\..\external\segger_rtt\SEGGER_RTT_Conf.h
-.\_build\main.o: ..\..\..\..\..\..\external\segger_rtt\SEGGER_RTT_printf.c
