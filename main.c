@@ -1090,6 +1090,15 @@ void bsp_event_handler(bsp_event_t event)
 					err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
 					APP_ERROR_CHECK(err_code);
 				break;
+				
+				case BSP_EVENT_KEY_2:
+					NRF_LOG_INFO("HeapSize is: %i\r\n",xPortGetFreeHeapSize());
+				break;
+				
+				case BSP_EVENT_KEY_3:
+					NRF_LOG_INFO("Starting searching\r\n");
+					UNUSED_VARIABLE(xSemaphoreGiveFromISR(uart_search, NULL));
+				break;
 			
         default:
             break;
