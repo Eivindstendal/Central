@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#define MAXIMUM_ADDRS 250
+
 /*
 Initialisation definitions
 */
@@ -73,30 +75,37 @@ Definition for response telegram from m_bus after REQ_UD2 reguest.
 #define RESPONSE_STOP_FIELD 0x16						//62 byte in the telegram
 
 
-
 /*
 A definition of the adresse field. 
 */
 #define A_FIELD 0xAA												//Address field. 
+
+
+/*
+Definition for telegram structure
+*/
+#define NOT_FINISH 0
+#define FINISH 1
+#define WRONG_TELEGRAM 2
+
 
 /*
 States used in the uart stack thread
 */
 typedef enum
 {
-	INIT_M_BUS_STATE,
-	RESET_ACC,
-	RESET_PARTIAL_STATE,
+	SEARCING_NEW_ADR,
 	WAITING_RESPONSE_STATE,
-	READING_M_BUS_RESPONSE
+	CREATE_SEND_REQ_TASK,
+	WAITING_STATE
 } uart_event_states;
 
 typedef enum
 {
-	LAST_INIT_M_BUS_STATE,
-	LAST_RESET_ACC,
-	LAST_RESET_PARTIAL_STATE,
-} last_uart_event_states;
+	TIMER_ACTIVE_OR_NOT,
+	SENDING_REQUD2,
+	READING_RESPONSE
+} uart_reading_states;
 
 
 /*
@@ -105,16 +114,21 @@ Structure to save the values from the m_bus receiver.
 struct aMessage
 {
 	uint32_t Message_number;
+	uint8_t adr;
 	uint8_t STAT;
 	uint32_t Total_power;
 	uint32_t Partial_power;
 	uint16_t Voltage;
 	uint16_t Current;
-	uint16_t Power; //Denne
+	uint16_t Power;
 	uint16_t Reactive_power;
 } xMessage;
 
-
+typedef struct adr_of_m_bus_struct
+{
+	uint8_t adr_array[10];
+	uint8_t number_of_adrs;
+} adr_struct;
 
 /**@brief Function for initializing the m-bus receiver
  *
@@ -202,6 +216,7 @@ bool response_from_m_bus (uint8_t exp_response);
  */
 bool telegram_structure_check (uint8_t byte1, uint8_t byte2, uint8_t byte3, uint8_t byte4);
 
+
  /**@brief Function for decoding bcd.
  *
  * @details   
@@ -213,4 +228,48 @@ bool telegram_structure_check (uint8_t byte1, uint8_t byte2, uint8_t byte3, uint
  * @retval 
  */
 uint8_t bcdtobyte(uint8_t bcd);
+
+
+/**@brief Function for decoding bcd.
+ *
+ * @details   
+ *          (Don`t need to be protected with a mutex)
+ *
+ *
+ * @param[in] 
+ *
+ * @retval 
+ */
+uint32_t bcdtobyte_EX(uint8_t bcd[4]);
+
+
+/**@brief Function for decoding bcd.
+ *
+ * @details   
+ *          (Don`t need to be protected with a mutex)
+ *
+ *
+ * @param[in] 
+ *
+ * @retval 
+ */
+bool correct_checksum(uint8_t c_field, uint8_t adr, uint8_t ci_field, uint8_t checksum);
+
+
+/**@brief 
+ *
+ * @details   
+ *          (Don`t need to be protected with a mutex)
+ *
+ *
+ * @param[in] data_array		
+ *
+ * @param[in] counter				The data bit counter.
+ *
+ * @retval True if the telegram structure is received correctly, false else. 
+ */
+
+uint8_t telegram_structure_response(uint8_t counter);
+
+ 
 #endif //M_BUS_RECEIVER

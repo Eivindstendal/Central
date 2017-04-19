@@ -108,8 +108,11 @@
 #define ACK_WAIT_INTERVAL      3000
 
 #define M_BUS_RECEIVER_INTERVAL      		2000//10000                             
-#define OSTIMER_WAIT_FOR_QUEUE          	 10                              /**< Number of ticks to wait for the timer queue to be ready */
-
+#define WAITING_UART_MUTEX 							500
+#define WAITING_M_BUS_RESPONSE					100
+#define M_BUS_RECEIVER_INTERVAL      		2000//10000                             
+#define OSTIMER_WAIT_FOR_QUEUE          100                              /**< Number of ticks to wait for the timer queue to be ready */
+#define UART_WAITING_TO_LONG            30000
 
 /* For slave config*/
 #define DEVICE_NAME              		       "El_hub_central"  											  /**< Name of device. Will be included in the advertising data. */
@@ -125,6 +128,7 @@
 #define ACK_WAIT_INTERVAL      3000	
 
 
+
 APP_TIMER_DEF(m_clock_timer);
 APP_TIMER_DEF(ack_timer);
 static ble_nus_c_t              m_ble_nus_c[TOTAL_LINK_COUNT];                    /**< Instance of NUS service. Must be passed to all NUS_C API calls. */
@@ -132,7 +136,6 @@ static ble_db_discovery_t       m_ble_db_discovery[TOTAL_LINK_COUNT];           
 static uint8_t           		m_ble_nus_c_count;  
 static ble_uuid_t                       m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};  /**< Universally unique service identifier. */
 static ble_nus_t                m_nus;                                      /**< Structure to identify the Nordic UART Service. */
-//bool waiting_ack[CENTRAL_LINK_COUNT];  // Må endres til en semaphore
 
 EventGroupHandle_t waiting_ack;
 
@@ -141,10 +144,12 @@ static SemaphoreHandle_t uart_event_rx_ready; //Semaphore raised if there is a n
 static SemaphoreHandle_t uart_mutex_tx;          //Mutex for the uart module. 
 static SemaphoreHandle_t data_struct_mutex;
 static SemaphoreHandle_t slave_on_mutex;
+static SemaphoreHandle_t uart_search;		
+static SemaphoreHandle_t m_bus_adr_searc;					//Visst en skal trykke for å søke etter adresser. Kanskje legge inn denne funksjonen.
+static SemaphoreHandle_t m_bus_timer_timout;
 
 static QueueHandle_t uart_event_queue;
 static QueueHandle_t m_bus_adr_queue;
-
 static QueueHandle_t clock_hour;
 static QueueHandle_t power_msg_queue;
 static QueueHandle_t data_struct;
@@ -152,17 +157,17 @@ static QueueHandle_t data_struct_print;
 static QueueHandle_t slave_nr_send_data;	
 
 static TaskHandle_t m_ble_stack_thread;       /**< Definition of BLE stack thread. */
-static TaskHandle_t m_uart_stack_thread;      /**< Task for the uart thread. */
+static TaskHandle_t m_uart_search_thread;     //Task for the uart thread.
 static TaskHandle_t m_logger_thread;          /**< Definition of Logger thread. */
 static TaskHandle_t m_controller_task;        /**< Task that controlls everything */
 static TaskHandle_t m_send_data_task;					/**< Task for sending data . */
+static TaskHandle_t m_uart_task;							//Testing for å lage egen task som tar seg av uart sending og avlesning. 
 
 
 static TimerHandle_t m_bus_receiver_timer;   //Definition of the m_bus_receiver timer.
 static TimerHandle_t slave_off_timer;
 
-static uint8_t curr_connection = 0; // er det greit å bruke global variabel?
-
+static uint8_t curr_connection = 0; //
 static const char m_target_periph_name[] = "7dk29kshnsdc";          /**< If you want to connect to a peripheral using a given advertising name, type its name here. */
 
 
@@ -222,16 +227,6 @@ struct My_data_pointers
 }xMy_data_pointers;
 
 
-///**
-// * @brief NUS uuid
-// */
-//static const ble_uuid_t m_nus_uuid =
-//  {
-//    .uuid = BLE_UUID_NUS_SERVICE,
-//    .type = NUS_SERVICE_UUID_TYPE
-//  };
-
-  
 /**@brief Function for asserts in the SoftDevice.
  *
  * @details This function will be called in case of an assert in the SoftDevice.
@@ -263,7 +258,6 @@ static void scan_start(void)
     APP_ERROR_CHECK(ret);
 		NRF_LOG_INFO("	Uart c Scan started\r\n");
 }
-
 
 
 /**@brief Function for handling database discovery events.
@@ -329,7 +323,7 @@ static void send_data_task(void * arg)
 	
 	UNUSED_PARAMETER(arg);
 	struct My_data_pointers *slaves;
-	
+
 	uint8_t slave_nr;
 	uint8_t data[ELEMENTS_IN_xMy_data_STRUCT];
 	
@@ -425,8 +419,6 @@ static void send_data_task(void * arg)
 }
 
 
-
- 
 /**@brief Function to print data to slaves
  * 
  *  
@@ -471,10 +463,7 @@ void print_data(void)
  }
 }
 
-		
 
- 
- 
 /**@brief Callback handling NUS Client events.
  *
  * @details This function is called to notify the application of NUS client events.
@@ -595,6 +584,8 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
             break;
     }
 }
+
+
 /**@snippet [Handling events from the ble_nus_c module] */
 
 /**@brief Function for putting the chip into sleep mode.
@@ -652,92 +643,6 @@ static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_ty
 }
 
 
-///**@brief Reads an advertising report and checks if a uuid is present in the service list.
-// *
-// * @details The function is able to search for 16-bit, 32-bit and 128-bit service uuids.
-// *          To see the format of a advertisement packet, see
-// *          https://www.bluetooth.org/Technical/AssignedNumbers/generic_access_profile.htm
-// *
-// * @param[in]   p_target_uuid The uuid to search fir
-// * @param[in]   p_adv_report  Pointer to the advertisement report.
-// *
-// * @retval      true if the UUID is present in the advertisement report. Otherwise false
-// */
-//static bool is_uuid_present(const ble_uuid_t *p_target_uuid,
-//                            const ble_gap_evt_adv_report_t *p_adv_report)
-//{
-//    uint32_t err_code;
-//    uint32_t index = 0;
-//    uint8_t *p_data = (uint8_t *)p_adv_report->data;
-//    ble_uuid_t extracted_uuid;
-
-//    while (index < p_adv_report->dlen)
-//    {
-//        uint8_t field_length = p_data[index];
-//        uint8_t field_type   = p_data[index + 1];
-
-//        if ( (field_type == BLE_GAP_AD_TYPE_16BIT_SERVICE_UUID_MORE_AVAILABLE)
-//           || (field_type == BLE_GAP_AD_TYPE_16BIT_SERVICE_UUID_COMPLETE)
-//           )
-//        {
-//            for (uint32_t u_index = 0; u_index < (field_length / UUID16_SIZE); u_index++)
-//            {
-//                err_code = sd_ble_uuid_decode(  UUID16_SIZE,
-//                                                &p_data[u_index * UUID16_SIZE + index + 2],
-//                                                &extracted_uuid);
-//                if (err_code == NRF_SUCCESS)
-//                {
-//                    if ((extracted_uuid.uuid == p_target_uuid->uuid)
-//                        && (extracted_uuid.type == p_target_uuid->type))
-//                    {
-//                        return true;
-//                    }
-//                }
-//            }
-//        }
-
-//        else if ( (field_type == BLE_GAP_AD_TYPE_32BIT_SERVICE_UUID_MORE_AVAILABLE)
-//                || (field_type == BLE_GAP_AD_TYPE_32BIT_SERVICE_UUID_COMPLETE)
-//                )
-//        {
-//            for (uint32_t u_index = 0; u_index < (field_length / UUID32_SIZE); u_index++)
-//            {
-//                err_code = sd_ble_uuid_decode(UUID16_SIZE,
-//                &p_data[u_index * UUID32_SIZE + index + 2],
-//                &extracted_uuid);
-//                if (err_code == NRF_SUCCESS)
-//                {
-//                    if ((extracted_uuid.uuid == p_target_uuid->uuid)
-//                        && (extracted_uuid.type == p_target_uuid->type))
-//                    {
-//                        return true;
-//                    }
-//                }
-//            }
-//        }
-
-//        else if ( (field_type == BLE_GAP_AD_TYPE_128BIT_SERVICE_UUID_MORE_AVAILABLE)
-//                || (field_type == BLE_GAP_AD_TYPE_128BIT_SERVICE_UUID_COMPLETE)
-//                )
-//        {
-//            err_code = sd_ble_uuid_decode(UUID128_SIZE,
-//                                          &p_data[index + 2],
-//                                          &extracted_uuid);
-//            if (err_code == NRF_SUCCESS)
-//            {
-//                if ((extracted_uuid.uuid == p_target_uuid->uuid)
-//                    && (extracted_uuid.type == p_target_uuid->type))
-//                {
-//                    return true;
-//                }
-//            }
-//        }
-//        index += field_length + 1;
-//    }
-//    return false;
-//}
-
-
 /**@brief Function for searching a given name in the advertisement packets.
  *
  * @details Use this function to parse received advertising data and to find a given
@@ -787,8 +692,6 @@ static bool find_adv_name(const ble_gap_evt_adv_report_t *p_adv_report, const ch
     return false;
 }
 
-	
-
 
 /**@brief Function for handling the Application's BLE Stack events.
  *
@@ -806,8 +709,6 @@ static void on_ble_central_evt(ble_evt_t * p_ble_evt)
             bool do_connect = false;
 						const ble_gap_evt_adv_report_t * p_adv_report = &p_gap_evt->params.adv_report;
 						
-
-					
 						if (find_adv_name(&p_gap_evt->params.adv_report, m_target_periph_name))
             {
                  
@@ -862,7 +763,7 @@ static void on_ble_central_evt(ble_evt_t * p_ble_evt)
 			if (ble_conn_state_n_centrals() == CENTRAL_LINK_COUNT)
             {
                 err_code = bsp_indication_set(BSP_INDICATE_IDLE);
-				APP_ERROR_CHECK(err_code);
+								APP_ERROR_CHECK(err_code);
             }
             else
             {
@@ -954,6 +855,7 @@ static void on_ble_central_evt(ble_evt_t * p_ble_evt)
     }
 }
 
+
 /**@brief Function for handling BLE Stack events involving peripheral applications. Manages the
  * LEDs used to report the status of the peripheral applications.
  *
@@ -1041,7 +943,6 @@ static void on_ble_peripheral_evt(ble_evt_t * p_ble_evt)
 }
 
 
-
 /**@brief Function for dispatching a BLE stack event to all modules with a BLE stack event handler.
  *
  * @details This function is called from the scheduler in the main loop after a BLE stack event has
@@ -1097,6 +998,7 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 			
 		}
 }
+
 
 /**
  * @brief Event handler for new BLE events
@@ -1158,6 +1060,7 @@ static void ble_stack_init(void)
 
 }
 
+
 /**@brief Function for handling events from the BSP module.
  *
  * @param[in] event  Event generated by button press.
@@ -1193,6 +1096,7 @@ void bsp_event_handler(bsp_event_t event)
     }
 }
 
+
 /**@brief Function for initializing the UART.
  */
 
@@ -1220,6 +1124,7 @@ static void uart_init(void)
 
     APP_ERROR_CHECK(err_code);
 }
+
 
 /**@brief Function for initializing the NUS Client.
  */
@@ -1422,6 +1327,7 @@ static void slave_on(void)
 
 		}
 }
+
 
 /**@brief 
  *
@@ -1880,6 +1786,8 @@ static void advertising_init(void)
     err_code = ble_advertising_init(&advdata, NULL, &options, on_adv_evt, NULL); // NULL chaged from &scanrsp
     APP_ERROR_CHECK(err_code);
 }
+
+
 /**@brief Function for handling errors from the Connection Parameters module.
  *
  * @param[in] nrf_error  Error code containing information about what went wrong.
@@ -1910,6 +1818,7 @@ static void conn_params_init(void)
     err_code = ble_conn_params_init(&cp_init);
     APP_ERROR_CHECK(err_code);
 }
+
 
 /**@brief Function for initiating advertising and scanning.
  */
@@ -2038,6 +1947,7 @@ static void pm_evt_handler(pm_evt_t const * p_evt)
     }
 }
 
+
 /**@brief Function for the Peer Manager initialization.
  *
  * @param[in] erase_bonds  Indicates whether bonding information should be cleared from
@@ -2134,6 +2044,8 @@ static void ble_stack_thread(void * arg)
 }
 
 
+
+
 /**@brief 
  *
  * @details 
@@ -2141,279 +2053,270 @@ static void ble_stack_thread(void * arg)
  * @param[in] xTimer Handler to the timer that called this function.
  *                   You may get identifier given to the function xTimerCreate using pvTimerGetTimerID.
  */
-static void m_bus_timer_receiver_timeout(TimerHandle_t xTimer)
+static void m_bus_timer_receiver_timeout(TimerHandle_t xTimer) //Tror denne kan skrives om, endrer kun på addressen visst den kan motta noe på køen. 
 {
   UNUSED_PARAMETER(xTimer);
-	static uint8_t adr_of_mbus=0;
-	//NRF_LOG_INFO("Timout %i\r\n", adr_of_mbus);
+	UNUSED_VARIABLE(xSemaphoreGiveFromISR(m_bus_timer_timout, NULL));
+}
 
-	if(m_bus_adr_queue!=0)
+static void uart_task(void * arg)
+{
+	
+	static struct aMessage *myMessage;
+	static uint8_t simple_counter=0;
+	static uint8_t adr_counter=0;
+	static uart_reading_states m_uart_reading_states;
+	static struct adr_of_m_bus_struct *my_adr_struct;
+	my_adr_struct = (struct adr_of_m_bus_struct*) arg;
+	static uint8_t response;
+	
+	
+
+	if (pdPASS == xTimerStart(m_bus_receiver_timer, portMAX_DELAY))
 	{
-		if(xQueueReceiveFromISR(m_bus_adr_queue, &(adr_of_mbus), NULL ))
-		{
-						
-			if(xSemaphoreTake(uart_mutex_tx, (( TickType_t ) 10 ) == pdTRUE))
-			{
-
-				m_bus_send_request(adr_of_mbus, C_FIELD_FCB_NOT_SET_REQUEST);
-							//SEGGER_RTT_WriteString(0,"Sendt, 	Her?");
-				if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
-				{
-						 // We would not expect this call to fail because we must have
-						 // obtained the semaphore to get here.
-				}
-			}
-		}
-		else
-		{
-						
-			if(xSemaphoreTake(uart_mutex_tx, (( TickType_t ) 10 ) == pdTRUE))
-			{
-				m_bus_send_request(adr_of_mbus, C_FIELD_FCB_NOT_SET_REQUEST);
-							//SEGGER_RTT_WriteString(0,"Sendt, 	Her?");
-				if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
-				{
-						 // We would not expect this call to fail because we must have
-						 // obtained the semaphore to get here.
-				}
-			}
-		}
-	}
-
-	else
-	{ 
-		if(xSemaphoreTake(uart_mutex_tx, (( TickType_t ) 10 ) == pdTRUE))
-		{
-			m_bus_send_request((uint8_t) adr_of_mbus, C_FIELD_FCB_NOT_SET_REQUEST);
+		m_uart_reading_states = SENDING_REQUD2;
+		NRF_LOG_INFO("TIMER STARTET\r\n");
 			
-			if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
-			{
-           // We would not expect this call to fail because we must have
-           // obtained the semaphore to get here.
-			}
+	}
+	else
+	{	
+		APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+	}
+		
+	
+				
+	while(1)
+	{
+//		for(uint8_t i =0; i<my_adr_struct->number_of_adrs ; i++)
+//			NRF_LOG_INFO("TASK med adr Nr: %i, og nr: %i\r\n",my_adr_struct->adr_array[i], my_adr_struct->number_of_adrs );
+		
+		
+		switch(m_uart_reading_states)
+		{
+			case SENDING_REQUD2:
+				if(xSemaphoreTake(m_bus_timer_timout,portMAX_DELAY) == pdTRUE)
+				{
+					if(xSemaphoreTake(uart_mutex_tx, portMAX_DELAY) == pdTRUE)  //Endring her å. For her sender jeg kun til en adresse. 
+					{
+						m_bus_send_request((uint8_t) my_adr_struct->adr_array[adr_counter], C_FIELD_FCB_NOT_SET_REQUEST);
+						NRF_LOG_INFO("Sending request, adr: %i \r\n", my_adr_struct->adr_array[adr_counter]);
+						
+						if(adr_counter <= my_adr_struct->number_of_adrs)
+						{
+							adr_counter ++;
+							NRF_LOG_INFO("adr_counter ++\r\n");
+						}
+						else
+						{
+							adr_counter =0;
+
+							NRF_LOG_INFO("adr_counter =0\r\n");
+						}
+						
+						if ( xSemaphoreGive(uart_mutex_tx ) != pdTRUE )
+						{
+							// We would not expect this call to fail because we must have
+							// obtained the semaphore to get here.
+						}
+						m_uart_reading_states = READING_RESPONSE;
+					}
+					
+					else
+					{
+						m_uart_reading_states = SENDING_REQUD2;
+					}
+				}
+				else
+				{
+					m_uart_reading_states = SENDING_REQUD2;
+				}
+				
+				break;
+				
+			case READING_RESPONSE:
+				if(xSemaphoreTake(uart_event_rx_ready,UART_WAITING_TO_LONG) ==pdTRUE ) //Venter helt til UART_WAITING_TO_LONG har gått ut, visst den går så har vi venter for lenge. 
+				{
+					
+					response = telegram_structure_response(simple_counter);
+					
+					switch (response)
+					{
+						case NOT_FINISH: //Bare fortsette å legge inn. 
+							//NRF_LOG_INFO("Case not finish, counter %i\r\n", simple_counter);
+							simple_counter++;
+							break;
+						
+						case FINISH:
+							simple_counter = 0;
+							NRF_LOG_INFO("Case finish\r\n, counter %i\r\n", simple_counter);
+							if( uart_event_queue != 0 )
+							{
+								myMessage = &xMessage;
+								xQueueSend( uart_event_queue, ( void * ) &myMessage, ( TickType_t ) 0 );
+								NRF_LOG_INFO("Sendt queue\r\n");
+							}
+							else
+							{
+								while(app_uart_flush() !=NRF_SUCCESS);
+							}
+							
+							m_uart_reading_states = SENDING_REQUD2;
+							break;
+						
+						case WRONG_TELEGRAM:
+							simple_counter = 0;
+							NRF_LOG_INFO("Case wrong response\r\n");
+							
+							if(xSemaphoreTake(m_bus_timer_timout,portMAX_DELAY) == pdTRUE)
+							{
+								while(app_uart_flush() !=NRF_SUCCESS);
+								m_uart_reading_states = SENDING_REQUD2;
+							}
+							else
+							{
+								m_uart_reading_states = SENDING_REQUD2;
+							}
+							break;
+						
+						default:
+							m_uart_reading_states = SENDING_REQUD2;
+							break;
+					}
+					//NRF_LOG_INFO("simple_counter nr %i \r\n", simple_counter);//Da funker det til nå. 
+					
+				}
+				else
+				{
+					NRF_LOG_INFO("Ventet for lenge, Gir fra seg uart_search semaphore, og sletter m_uart_task\r\n");
+					//Kanskje ha en teller, si f.eks vi må ha 3 feil avlesninger før vi sletter
+					if(xSemaphoreGive(uart_search)!= pdTRUE)
+					{
+						//This should not happen.
+					}
+					vTaskDelete(NULL);
+				}
+				break;
+				
+			default:
+				m_uart_reading_states = SENDING_REQUD2;
+				break;
 		}
 	}
 }
 
 
 
-static void uart_stack_thread(void * arg)
+static void uart_search_thread(void * arg)
 {
 	UNUSED_PARAMETER(arg);
 	
-	static struct aMessage *myMessage;
-	static uint32_t message_counter = 0;
-	static uint8_t data_array[62];
-	static uint8_t counter = 0;
-	static uart_event_states m_uart_event_states = RESET_ACC;
-	static last_uart_event_states last_m_uart_event_state = LAST_RESET_ACC;
-	static uint8_t adr_of_m_bus = 0;
+	static uart_event_states m_uart_event_states = WAITING_STATE;
+	static uint8_t adr_nr = 0;
+	static adr_struct my_adr_struct;
+	my_adr_struct.number_of_adrs=0;
+	
 	while(1)
 	{
 		
 		switch(m_uart_event_states)
 		{
-			case INIT_M_BUS_STATE:
-				
-				if(xSemaphoreTake(uart_mutex_tx, 500) == pdTRUE)
-				{
-						m_bus_receiver_init(adr_of_m_bus); //Initialice the m-bus receiver
-						NRF_LOG_INFO("INIT %i\r\n", adr_of_m_bus);
-						if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
-						{
-                // We would not expect this call to fail because we must have
-                // obtained the semaphore to get here.
-						}
-						last_m_uart_event_state = LAST_INIT_M_BUS_STATE;
-						m_uart_event_states = WAITING_RESPONSE_STATE;
-				}
-				
-				else
-				{
-					m_uart_event_states = INIT_M_BUS_STATE;
-				}
-				
-				break;
-				
-				case RESET_ACC: //Resetting the device. Start up state. 
-				if(xSemaphoreTake(uart_mutex_tx, 500 ) == pdTRUE)
-				{
-						//NRF_LOG_INFO("RESET %i\r\n", adr_of_m_bus);
-						m_bus_receiver_reset_application(adr_of_m_bus); //Resetting the m-bus receiver
-						if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
-						{
-                // We would not expect this call to fail because we must have
-                // obtained the semaphore to get here.
-						}
-						last_m_uart_event_state = LAST_RESET_ACC;
-						m_uart_event_states = WAITING_RESPONSE_STATE;
-				}
-				
-				else
-				{
-					m_uart_event_states = RESET_ACC;
-				}
-				break;
-	
-			case RESET_PARTIAL_STATE:
-				
-				if(xSemaphoreTake(uart_mutex_tx, 500 ) == pdTRUE)
-				{
-						m_bus_receiver_reset_partial_power(adr_of_m_bus); //Initialice the m-bus receiver
-						
-						if ( xSemaphoreGive( uart_mutex_tx ) != pdTRUE )
-						{
-                // We would not expect this call to fail because we must have
-                // obtained the semaphore to get here.
-						}
-						last_m_uart_event_state = LAST_RESET_PARTIAL_STATE;
-						m_uart_event_states = WAITING_RESPONSE_STATE;
-						
-				}
-				
-				else
-				{
-					m_uart_event_states = RESET_PARTIAL_STATE;
-				}
-				break;
-			
-			case WAITING_RESPONSE_STATE:
-
-						switch(last_m_uart_event_state)
-						{
-							case LAST_INIT_M_BUS_STATE:
-								
-								if(xSemaphoreTake(uart_event_rx_ready, 500) ==pdTRUE )
-								{
-									if(response_from_m_bus(RESPONSE_INIT))
-									{
-										if (pdPASS == xTimerStart(m_bus_receiver_timer, OSTIMER_WAIT_FOR_QUEUE))
-										{
-											if( m_bus_adr_queue != 0 )
-											{
-												xQueueSend( m_bus_adr_queue, ( void * ) &adr_of_m_bus, ( TickType_t ) 100 );
-											}
-											else
-											{
-												m_uart_event_states = INIT_M_BUS_STATE;
-												break;
-											}
-										}
-										else
-										{
-											APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
-										}
-										
-										m_uart_event_states = READING_M_BUS_RESPONSE;
-									}
-									else
-									{
-										m_uart_event_states = INIT_M_BUS_STATE;
-									}
-								}
-								
-								else
-								{
-									m_uart_event_states = INIT_M_BUS_STATE;
-								}
-								break;
-
-								
-							case LAST_RESET_ACC:
-								
-								if(xSemaphoreTake(uart_event_rx_ready, 500) ==pdTRUE )
-								{
-									if(response_from_m_bus(RESPONSE_RESET_ACC))
-									{
-										m_uart_event_states = INIT_M_BUS_STATE;
-										
-									}
-									else
-									{
-										adr_of_m_bus++;
-										m_uart_event_states = RESET_ACC;
-									}
-								}
-								else
-								{
-									adr_of_m_bus++;
-									m_uart_event_states = RESET_ACC;
-								}
-								break;
-								
-								
-								
-							case LAST_RESET_PARTIAL_STATE:
-								if(xSemaphoreTake(uart_event_rx_ready, 500) ==pdTRUE )
-								{
-									
-									if(response_from_m_bus(RESPONSE_RESET_PARTIAL))
-									{
-										m_uart_event_states = READING_M_BUS_RESPONSE;
-									}
-									else
-									{
-										m_uart_event_states = RESET_PARTIAL_STATE;
-									}
-								}
-								else
-								{
-									m_uart_event_states = RESET_PARTIAL_STATE;
-								}
-								break;
-							default:
-								break;
-						}
-				//vTaskDelay(10);
-				break;
-			
-			case READING_M_BUS_RESPONSE: //Inne her må det skrives om litt. Må ha en sjekk før en teller opp til 61 tror jeg. Kanskje best å vente på 0x16?
-				if(xSemaphoreTake(uart_event_rx_ready,portMAX_DELAY) ==pdTRUE )
-				{
-					UNUSED_VARIABLE(app_uart_get(&data_array[counter]));
-					//if(data_array[0] == RESPONSE_START_FIELD)
-					if(counter == 61)
+			case SEARCING_NEW_ADR:
+					if(xSemaphoreTake(uart_mutex_tx, portMAX_DELAY) == pdTRUE)  //Endring her å. 
 					{
-						if(data_array[0]!=RESPONSE_START_FIELD && data_array[1]!=RESPONSE_L_READ && data_array[2]!= RESPONSE_L_READ && data_array[61] != RESPONSE_STOP_FIELD)
+						m_bus_receiver_init(adr_nr);
+						NRF_LOG_INFO("Sending init, adr: %i \r\n", adr_nr);
+						
+						if ( xSemaphoreGive(uart_mutex_tx ) != pdTRUE )
 						{
-							while(app_uart_flush() !=NRF_SUCCESS);
-							counter = 0; 
+						// We would not expect this call to fail because we must have
+						// obtained the semaphore to get here.
+						}
+						m_uart_event_states = WAITING_RESPONSE_STATE;
+					}
+					else
+					{
+						m_uart_event_states = WAITING_STATE;
+					}
+				break;
+					
+			case WAITING_RESPONSE_STATE:
+				if(adr_nr<MAXIMUM_ADDRS)
+				{
+					if(xSemaphoreTake(uart_event_rx_ready, WAITING_M_BUS_RESPONSE) ==pdTRUE )
+					{
+						if(response_from_m_bus(RESPONSE_INIT))
+						{
+							my_adr_struct.adr_array[my_adr_struct.number_of_adrs]	=	adr_nr;
+							my_adr_struct.number_of_adrs = my_adr_struct.number_of_adrs+1;
+							adr_nr++;
+							m_uart_event_states = SEARCING_NEW_ADR;
+							NRF_LOG_INFO("Stored adr in struct is: %i, counter is:%i \r\n",my_adr_struct.adr_array[my_adr_struct.number_of_adrs-1], my_adr_struct.number_of_adrs);
 						}
 						else
 						{
-							myMessage->Message_number = message_counter++;
-							myMessage->STAT = data_array[16];
-							
-							myMessage->Total_power = bcdtobyte(data_array[22]) + (100*bcdtobyte(data_array[23])) + (10000*bcdtobyte(data_array[24])) + (1000000*bcdtobyte(data_array[25]));  //Denne 
-							myMessage->Partial_power = bcdtobyte(data_array[29]) + (100*bcdtobyte(data_array[30])) + (10000*bcdtobyte(data_array[31])) + (1000000*bcdtobyte(data_array[32])); //Og denne er koded i bcb. 
-							myMessage->Voltage = (data_array[38]) + (data_array[39]<<8);
-							myMessage->Current = data_array[45] + (data_array[46]<<8);
-							myMessage->Power = (data_array[51] + (data_array[52]<<8))*10;
-							myMessage->Reactive_power = data_array[58] + (data_array[59]<<8);
-							
-							if( uart_event_queue != 0 )
-							{
-								myMessage = &xMessage;
-								xQueueSend( uart_event_queue, ( void * ) &myMessage, ( TickType_t ) 0 );
-							}
-					
-							if (xQueueSend( power_msg_queue, ( void * ) &myMessage->Power, ( TickType_t ) 0 ) != pdPASS )
-							{
-										NRF_LOG_INFO("Failed to post my_msg_power to queue , even after 0 ticks.\r\n");
-							}
-							
-							counter = 0;
+							adr_nr++;
+							m_uart_event_states = SEARCING_NEW_ADR;
+							NRF_LOG_INFO("Wrong Response\r\n");
 						}
-						vTaskDelay(1);
-						break;
 					}
-					counter++;
+					else
+					{
+						adr_nr++;
+						m_uart_event_states = SEARCING_NEW_ADR;
+						NRF_LOG_INFO("No response\r\n");
+					}
 				}
-				vTaskDelay(1);
+				else
+				{
+					adr_nr=0;
+					
+					if(my_adr_struct.number_of_adrs !=0)
+					{
+						NRF_LOG_INFO("Searched all adresses, found %i adrs\r\n",my_adr_struct.number_of_adrs );
+						m_uart_event_states = CREATE_SEND_REQ_TASK;
+					}
+					else
+					{
+						NRF_LOG_INFO("Found none adresses, starting over again.\r\n");
+						m_uart_event_states = WAITING_STATE;
+					}
+				}
 				break;
-						
+
+				
+
+			case CREATE_SEND_REQ_TASK:
+
+				if(pdPASS != xTaskCreate(uart_task, "uart task", 256, (void *) &my_adr_struct, 2, m_uart_task))   //Init of the uart thread task, Lage timere her kanskje?
+				{
+					APP_ERROR_HANDLER(NRF_ERROR_NO_MEM); //Kanskje burde det bli noe mere sjekk her. 
+				}
+				for(uint8_t i=0; i<my_adr_struct.number_of_adrs; i++ )
+					NRF_LOG_INFO("Sender adr nr: %i, og det sendes %i adrs.\r\n", my_adr_struct.adr_array[i], my_adr_struct.number_of_adrs); //Bare for å sjekke at adresser blir sendt. 
+			
+				m_uart_event_states = WAITING_STATE;
+				adr_nr=0;
+			break;
+			
+			case WAITING_STATE:
+				
+				if(xSemaphoreTake(uart_search, portMAX_DELAY) == pdTRUE)
+				{
+					NRF_LOG_INFO("Starting new search\r\n");
+					my_adr_struct.number_of_adrs=0;
+					m_uart_event_states = SEARCING_NEW_ADR;
+				}
+				else
+				{
+					NRF_LOG_ERROR("case WAITING_STATE else, should not happen\r\n");
+					m_uart_event_states = WAITING_STATE; //Should not happen
+				}
+				
+				break;
+				
 			default:
-				vTaskDelay(1);
+				NRF_LOG_INFO("default statement, should not happen\r\n");
+				vTaskDelay(10);
 				break;
 			}
 		
@@ -2467,12 +2370,22 @@ int main(void)
     // Do not start any interrupt that uses system functions before system initialisation.
     // The best solution is to start the OS before any other initalisation.
 
+	
+		
+		
     // Init a semaphore for the BLE thread.
     m_ble_event_ready = xSemaphoreCreateBinary();
     if (NULL == m_ble_event_ready)
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }	
+		
+		m_bus_timer_timout = xSemaphoreCreateBinary();
+		if (NULL == m_bus_timer_timout)
+		{
+			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+		}
+		
 		// init semaphore for slave_on
 		slave_on_mutex = xSemaphoreCreateBinary();
 		if (NULL == slave_on_mutex)
@@ -2499,6 +2412,18 @@ int main(void)
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
+		//Init a mutex for the uart_search module. 
+		uart_search = xSemaphoreCreateBinary();
+		if(NULL == uart_search)
+		{
+			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+		}
+		//Init a mutex for the m_bus_adr_searc module/thread. 
+		m_bus_adr_searc = xSemaphoreCreateBinary();
+		if(NULL == m_bus_adr_searc)
+		{
+			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+		}
 		
 		waiting_ack = xEventGroupCreate();
     /* Was the event group created successfully? */
@@ -2506,6 +2431,7 @@ int main(void)
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
+		
 
 
 		// Timers
@@ -2520,6 +2446,8 @@ int main(void)
 		{
 			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
 		}
+		m_bus_receiver_timer = xTimerCreate("M_BUS", M_BUS_RECEIVER_INTERVAL, pdTRUE, NULL, m_bus_timer_receiver_timeout);
+		
 		
 		
 		// Create Queues 
@@ -2562,6 +2490,7 @@ int main(void)
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
 		
+		
 
 
 
@@ -2573,7 +2502,7 @@ int main(void)
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
 		
-		if(pdPASS != xTaskCreate(uart_stack_thread, "UART", 256, NULL, 2, &m_uart_stack_thread))   //Init of the uart thread task
+		if(pdPASS != xTaskCreate(uart_search_thread, "UART", 256, NULL, 2, &m_uart_search_thread))   //Init of the uart thread task
 		{
 			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
 		}
