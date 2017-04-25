@@ -59,6 +59,7 @@
 #include "m_bus_receiver.h"
 #include "math.h"
 #include "SEGGER_RTT.h"
+#include "inttypes.h"
 
 
 
@@ -165,7 +166,7 @@ static TaskHandle_t m_uart_task;							//Testing for å lage egen task som tar se
 
 
 static TimerHandle_t m_bus_receiver_timer;   //Definition of the m_bus_receiver timer.
-static TimerHandle_t slave_off_timer;
+static TimerHandle_t slave_on_timer;
 
 static uint8_t curr_connection = 0; //
 static const char m_target_periph_name[] = "7dk29kshnsdc";          /**< If you want to connect to a peripheral using a given advertising name, type its name here. */
@@ -336,15 +337,20 @@ static void send_data_task(void * arg)
 	UNUSED_PARAMETER(arg);
 	struct My_data_pointers *slaves;
 
-	uint8_t slave_nr;
-	uint8_t data[ELEMENTS_IN_xMy_data_STRUCT];
+	static uint8_t slave_nr;
+	static uint8_t data[ELEMENTS_IN_xMy_data_STRUCT];
 	
 	uint32_t err_code;
 	EventBits_t bits = xEventGroupGetBits(waiting_ack);
 	
-
-		//data[5] = slaves.pMy_datas[slave_nr].current_temp;
-		//data[6] = slaves.pMy_datas[slave_nr].priority;
+	if(xQueuePeek(data_struct, &(slaves), ( TickType_t ) 10 ))
+	{
+			// slaves now points to the struct xMy_data_pointers variable posted
+			// by controller_task, but the item still remains on the queue.		
+	}else
+	{
+			NRF_LOG_INFO("\t Failed to peek at data struct in send_data \n\r");
+	}
 	
 
 	
@@ -353,13 +359,7 @@ static void send_data_task(void * arg)
 			
 			if((0 != slave_nr_send_data) && (0 != data_struct))
 			{
-				
-				if(xQueuePeek(data_struct, &(slaves), ( TickType_t ) 10 ))
-				{
-					
-				}else
-						NRF_LOG_INFO("\t Failed to peek at data struct in send_data \n\r");
-	
+
 				if(xQueueReceive(slave_nr_send_data, &(slave_nr), ( TickType_t ) 10 ))
 				{
 					
@@ -429,47 +429,54 @@ static void send_data_task(void * arg)
 }
 
 
-/**@brief Function to print data to slaves
+/**@brief Function to print data
  * 
  *  
  */
 void print_data(void)
 {
 	struct My_data_pointers *slaves;	
-	struct limits *p_limits;
+	static struct limits *p_limits;
 	static uint32_t power;
 
 	
 
 	if(xQueuePeek(queue_limit_struct, &(p_limits), ( TickType_t ) 0 ) )
-	{}
+	{
+			// p_limits now points to the struct xlimits variable posted
+      // by controller task, but the item still remains on the queue.
+	
 		
-	if(0 != power_msg_queue)
-	{
-		xQueuePeek(power_msg_queue, &(power), ( TickType_t ) 10 );
-	}
-	if(0 != data_struct_print)
-	{
-		if(xQueueReceive(data_struct_print, &(slaves), ( TickType_t ) 10 ))
+		if(0 != power_msg_queue)
 		{
-			NRF_LOG_INFO("	Address_print_2: %p  \n", (uint32_t)&(slaves));
-			NRF_LOG_INFO("	Consume:				%d\n\r",power);
-			NRF_LOG_INFO("	PREFERRED_CONSUME_LIMIT:	%d\n\r",p_limits->preferred_consume_limit);
-			NRF_LOG_INFO("	NORMAL_MAX_CONSUME_LIMIT:	%d\n\r",p_limits->normal_max_consume_limit);
-			NRF_LOG_INFO("	MAX_CONSUME_LIMIT:		%d\n\n\r",p_limits->max_consume_limit);
-			
-			for(int i=0; i<=6;i++)
-			{	
-				NRF_LOG_INFO("	Type: 	  %c\n\r",slaves->pMy_datas[i]->type);
-				NRF_LOG_INFO("	Address:	  %d\n\r",slaves->pMy_datas[i]->address);
-				NRF_LOG_INFO("	ack:		  %d\n\r",slaves->pMy_datas[i]->ack);
-				NRF_LOG_INFO("	state:	  %d\n\r",slaves->pMy_datas[i]->state);
-				NRF_LOG_INFO("	Wanted_temp:  %d\n\r",slaves->pMy_datas[i]->wanted_temp);
-				NRF_LOG_INFO("	Current_temp: %d\n\r",slaves->pMy_datas[i]->current_temp);
-				NRF_LOG_INFO("	Priority:	  %d\n\r",slaves->pMy_datas[i]->priority);
-				NRF_LOG_INFO("	Max_power:	  %d\n\n\r",slaves->pMy_datas[i]->max_power);
-			} 
+			if(xQueuePeek(power_msg_queue, &(power), ( TickType_t ) 10 ))
+			{
+						// pcRxedMessage now points to the power msg variable posted
+            // by uart_task, but the item still remains on the queue.
+			}
 		}
+		if(0 != data_struct_print)
+		{
+			if(xQueueReceive(data_struct_print, &(slaves), ( TickType_t ) 10 ))
+			{
+				NRF_LOG_INFO("	Consume:				%d\n\r",power);
+				NRF_LOG_INFO("	PREFERRED_CONSUME_LIMIT:	%d\n\r",p_limits->preferred_consume_limit);
+				NRF_LOG_INFO("	NORMAL_MAX_CONSUME_LIMIT:	%d\n\r",p_limits->normal_max_consume_limit);
+				NRF_LOG_INFO("	MAX_CONSUME_LIMIT:		%d\n\n\r",p_limits->max_consume_limit);
+				
+				for(int i=0; i<=6;i++)
+				{	
+					NRF_LOG_INFO("	Type: 	  %c\n\r",slaves->pMy_datas[i]->type);
+					NRF_LOG_INFO("	Address:	  %d\n\r",slaves->pMy_datas[i]->address);
+					NRF_LOG_INFO("	ack:		  %d\n\r",slaves->pMy_datas[i]->ack);
+					NRF_LOG_INFO("	state:	  %d\n\r",slaves->pMy_datas[i]->state);
+					NRF_LOG_INFO("	Wanted_temp:  %d\n\r",slaves->pMy_datas[i]->wanted_temp);
+					NRF_LOG_INFO("	Current_temp: %d\n\r",slaves->pMy_datas[i]->current_temp);
+					NRF_LOG_INFO("	Priority:	  %d\n\r",slaves->pMy_datas[i]->priority);
+					NRF_LOG_INFO("	Max_power:	  %d\n\n\r",slaves->pMy_datas[i]->max_power);
+				} 
+			}
+	 }
  }
 }
 
@@ -497,9 +504,10 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 							
 				if(xQueuePeek(data_struct, &(slaves), ( TickType_t ) 10 ))
 				{
-					NRF_LOG_INFO("\tData_struct_to_nus_c \n\r");
+					// slaves now points to the struct xMy_data_pointers variable posted
+					// by controller_task, but the item still remains on the queue.
 				}
-				else NRF_LOG_INFO("\tCant access Data_struct_to_nus_c \n\r");
+				else NRF_LOG_INFO("\tFailed to receive data_struct msg in NUS \n\r");
 			}
 
 
@@ -613,7 +621,6 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 								NRF_LOG_INFO("Failed to post the nus_c msg, even after 10 ticks..\r\n");
 							}
 						}
-					
 					
 						break;
 					
@@ -1115,14 +1122,14 @@ void bsp_event_handler(bsp_event_t event)
             break;
 
         case BSP_EVENT_DISCONNECT:
-			
-            /* err_code = sd_ble_gap_disconnect(m_ble_nus_c.conn_handle,
+			// tester om denne bør være med 25/04/2017
+         err_code = sd_ble_gap_disconnect(m_ble_nus_c->conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-            if (err_code != NRF_ERROR_INVALID_STATE)
-            {
-                APP_ERROR_CHECK(err_code);
-            } */
-            break;
+          if (err_code != NRF_ERROR_INVALID_STATE)
+          {
+              APP_ERROR_CHECK(err_code);
+          } 
+         break;
 				case BSP_EVENT_KEY_1:
 		
 					NRF_LOG_INFO("Start adverticing! \r\n");
@@ -1202,34 +1209,36 @@ static void nus_c_init(void)
 static uint8_t find_lowest_priority(void)
 {
 	struct My_data_pointers *slaves;	
-	uint8_t slave_lowest_priority =0;
-	int8_t lowest_diff =100;
-	int8_t temp_diff;
+	static uint8_t slave_lowest_priority =0;
+	static int8_t lowest_diff =100;
+	static int8_t temp_diff;
 	
 	if(0 != data_struct)
 	{
 		if(xQueuePeek(data_struct, &(slaves), ( TickType_t ) 0 ))
 		{
-			NRF_LOG_INFO("\tData_struct_find_low_p: \n\r");	
-		}
+				// slaves now points to the struct xMy_data_pointers variable posted
+				// by controller_task, but the item still remains on the queue.
+		
 	
-		for(int i = 0; i<= CENTRAL_LINK_COUNT-1; i++)
-		{
-			if(1 <= slaves->pMy_datas[i]->state)// lowest priority = 0, highest = 30
+			for(int i = 0; i<= CENTRAL_LINK_COUNT-1; i++)
 			{
-				
-				if(slaves->pMy_datas[i]->priority > slave_lowest_priority)
+				if(1 <= slaves->pMy_datas[i]->state)// lowest priority = 0, highest = 30
 				{
-					slave_lowest_priority = slaves->pMy_datas[i]->priority;
-				}			
-				else if(slaves->pMy_datas[i]->priority == slave_lowest_priority)
-				{
-					temp_diff = slaves->pMy_datas[i]->wanted_temp - slaves->pMy_datas[i]->current_temp;
 					
-					if(temp_diff < lowest_diff)
+					if(slaves->pMy_datas[i]->priority > slave_lowest_priority)
 					{
-						lowest_diff = temp_diff;
-						slave_lowest_priority = i;
+						slave_lowest_priority = slaves->pMy_datas[i]->priority;
+					}			
+					else if(slaves->pMy_datas[i]->priority == slave_lowest_priority)
+					{
+						temp_diff = slaves->pMy_datas[i]->wanted_temp - slaves->pMy_datas[i]->current_temp;
+						
+						if(temp_diff < lowest_diff)
+						{
+							lowest_diff = temp_diff;
+							slave_lowest_priority = i;
+						}
 					}
 				}
 			}
@@ -1237,7 +1246,7 @@ static uint8_t find_lowest_priority(void)
 	}
 	if(0xFF == slave_lowest_priority)
 	{
-		//NRF_LOG_INFO("Can not find any slaves in active modus \r\n");
+		//Can not find any slaves in active modus
 	}
 	
 	return slave_lowest_priority;
@@ -1260,29 +1269,29 @@ static uint8_t find_highest_priority(void)
 	{
 		if(xQueuePeek(data_struct, &(slaves), ( TickType_t ) 0 ))
 		{
-			NRF_LOG_INFO("\tData_struct_find_high_p: \n\r")		
-		}
+			// slaves now points to the struct xMy_data_pointers variable posted
+			// by controller_task, but the item still remains on the queue.
 		
-		if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 ) == pdTRUE))
-		{
-			NRF_LOG_INFO("\t Take data_struct_mutex h_p \n\r");
-			for(int i; i<= CENTRAL_LINK_COUNT; i++)
+		
+			if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 ) == pdTRUE))
 			{
-				if(100 > slaves->pMy_datas[i]->state && slaves->pMy_datas[i]->priority < highest_priority)
+				NRF_LOG_INFO("\t Take data_struct_mutex h_p \n\r");
+				for(int i; i<= CENTRAL_LINK_COUNT; i++)
 				{
-						slave_highest_priority = i;
-						highest_priority = slaves->pMy_datas[i]->priority;
-					
+					if(100 > slaves->pMy_datas[i]->state && slaves->pMy_datas[i]->priority < highest_priority)
+					{
+							slave_highest_priority = i;
+							highest_priority = slaves->pMy_datas[i]->priority;
+					}
 				}
+				if(xSemaphoreGive(data_struct_mutex) != pdTRUE)
+				{
+					// We would not expect this call to fail because we must have
+					// obtained the semaphore to get here
+				}
+				NRF_LOG_INFO("\t Give data_struct_mutex h_p \n\r");
 			}
-			if(xSemaphoreGive(data_struct_mutex) != pdTRUE)
-			{
-				// We would not expect this call to fail because we must have
-				// obtained the semaphore to get here
-			}
-			NRF_LOG_INFO("\t Give data_struct_mutex h_p \n\r");
 		}
-		
 	}
 	if(0xFF == slave_highest_priority)
 	{				
@@ -1299,82 +1308,85 @@ static void slave_on(void)
 	
 		struct My_data_pointers *slaves;	
 		struct limits *p_limits;
-		uint32_t power;
+		static uint32_t power;
 		uint8_t slave_nr = find_highest_priority();
-		uint32_t consume_diff;
+		static uint32_t consume_diff;
 		
-		if(0 != data_struct)
+		if(0 != data_struct && 0 != queue_limit_struct &&0!= power_msg_queue )
 		{
 			if(xQueuePeek(data_struct, &(slaves), ( TickType_t ) 0 ))
 			{
-				NRF_LOG_INFO("struckt received: slave_on_timeout");
-			}
-		}
-		if(xQueuePeek(queue_limit_struct, &(p_limits), ( TickType_t ) 10 ) )
-		{}
-						
+				// slaves now points to the struct xMy_data_pointers variable posted
+				// by controller_task, but the item still remains on the queue.
+			
 		
-		if(xQueuePeek(power_msg_queue, &(power), ( TickType_t ) 10 ))
-		{
-			if(power  < p_limits->preferred_consume_limit)
-			{	
-				
-				if(slave_nr != 0xFF && (xSemaphoreTake(data_struct_mutex, (( TickType_t ) 100 ) == pdTRUE)))
+				if(xQueuePeek(queue_limit_struct, &(p_limits), ( TickType_t ) 0 ) )
 				{
-					NRF_LOG_INFO("\t Take data_struct_mutex s_on \n\r");
-					switch (slaves->pMy_datas[slave_nr]->type)
-					{
-						case 'b':
-						break;
-								
-						case 'B':
-							slaves->pMy_datas[slave_nr]->state = 100;				
-						break;
-						//Oven with temp sensor
-								
-						case 'c':					
-						break;
-						//Oven without temp sensor
-								
-						case 'C': 
-							consume_diff = p_limits->preferred_consume_limit - power;
-							if(consume_diff>(slaves->pMy_datas[slave_nr]->max_power))	
-							{
-								slaves->pMy_datas[slave_nr]->state = 100;
-							}	
-							else 
-							{
-								slaves->pMy_datas[slave_nr]->state = floor(((10*consume_diff)/(slaves->pMy_datas[slave_nr]->max_power))*10); 
-							}		
-						//Boiler with temp sensor	
-						break;
-								
-						case 'D':					
-						break;
-								
-						default:
-						break;
-
-					}
+					// p_limits now points to the struct xlimits variable posted
+					// by vATask, but the item still remains on the queue.
+	
 					
-					slaves->pMy_datas[slave_nr]->ack = 0; 
-					xQueueSend( slave_nr_send_data, ( void * ) &slave_nr, ( TickType_t ) 100 );
-					if( xSemaphoreGive( data_struct_mutex ) != pdTRUE )
+					if(xQueuePeek(power_msg_queue, &(power), ( TickType_t ) 0 ))
 					{
-							// We would not expect this call to fail because we must have obtained the semaphore to get here.					
-					}
-					else NRF_LOG_INFO("\t give data_struct_mutex s_on \n\r");
-				}
-			}else
-			{
-				if(pdPASS != xTimerStart(slave_off_timer, OSTIMER_WAIT_FOR_QUEUE))
-				{
-					APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
-				}
-			
-			}	
-			
+						if(power  < p_limits->preferred_consume_limit)
+						{	
+							
+							if(slave_nr != 0xFF && (xSemaphoreTake(data_struct_mutex, (( TickType_t ) 100 ) == pdTRUE)))
+							{
+								NRF_LOG_INFO("\t Take data_struct_mutex s_on \n\r");
+								switch (slaves->pMy_datas[slave_nr]->type)
+								{
+									case 'b':
+									break;
+											
+									case 'B':
+										slaves->pMy_datas[slave_nr]->state = 100;				
+									break;
+									//Oven with temp sensor
+											
+									case 'c':					
+									break;
+									//Oven without temp sensor
+											
+									case 'C': 
+										consume_diff = p_limits->preferred_consume_limit - power;
+										if(consume_diff>(slaves->pMy_datas[slave_nr]->max_power))	
+										{
+											slaves->pMy_datas[slave_nr]->state = 100;
+										}	
+										else 
+										{
+											slaves->pMy_datas[slave_nr]->state = floor(((10*consume_diff)/(slaves->pMy_datas[slave_nr]->max_power))*10); 
+										}		
+									//Boiler with temp sensor	
+									break;
+											
+									case 'D':					
+									break;
+											
+									default:
+									break;
 
+								}
+								
+								slaves->pMy_datas[slave_nr]->ack = 0; 
+								xQueueSend( slave_nr_send_data, ( void * ) &slave_nr, ( TickType_t ) 100 );
+								if( xSemaphoreGive( data_struct_mutex ) != pdTRUE )
+								{
+										// We would not expect this call to fail because we must have obtained the semaphore to get here.					
+								}
+								else NRF_LOG_INFO("\t give data_struct_mutex s_on \n\r");
+							}
+						}else
+						{
+							if(pdPASS != xTimerStart(slave_on_timer, OSTIMER_WAIT_FOR_QUEUE))
+							{
+								APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+							}
+						}	
+					}
+				}
+			}
 		}
 }
 
@@ -1437,19 +1449,19 @@ static void controller_task (void * arg)
 		
 		if ( 	xQueueSend( data_struct, ( void * ) &(slaves), ( TickType_t ) 100 ) != pdPASS )
 		{
-			//			NRF_LOG_INFO("Failed to post the message, even after 100 ticks..\r\n");
+					NRF_LOG_INFO("Failed to post the data_struct message, even after 100 ticks..\r\n");
 		}else NRF_LOG_INFO("\tDatastruct sendt to functions\r\n");
 
 		
 		if ( 	xQueueSend( queue_limit_struct, ( void * ) &(p_limits), ( TickType_t ) 100 ) != pdPASS )
 		{
-			//			NRF_LOG_INFO("Failed to post the message, even after 100 ticks..\r\n");
-		}else NRF_LOG_INFO("\tLimit struct sendt to functions\r\n");
+					NRF_LOG_INFO("Failed to post the queue_limit_struct message, even after 100 ticks..\r\n");
+		}
 
 		
-		if(xSemaphoreTake(slave_on_bin_semaphore, (( TickType_t ) 10 ) == pdTRUE))
+		if(xSemaphoreTake(slave_on_bin_semaphore, (( TickType_t ) 10 ) != pdTRUE))
 		{
-			NRF_LOG_INFO("Init slave_on_sempahore \r\n");
+			NRF_LOG_INFO("Init slave_on_sempahore failed in controller task \r\n");
 		}
 		
 
@@ -1457,13 +1469,14 @@ static void controller_task (void * arg)
 	while(1)
 	{
 		
-			
+				
 
 				if(0!= power_msg_queue)
 				{
 
 					if(xQueuePeek(power_msg_queue, &(power), ( TickType_t ) 10 ) )
 					{
+							
 						print_data();
 						if(xSemaphoreTake(slave_on_bin_semaphore, (( TickType_t ) 10 ) == pdTRUE))  
 						{
@@ -1477,14 +1490,13 @@ static void controller_task (void * arg)
 						{
 							if(xQueueReceive(clock_hour, &(hour), ( TickType_t ) 10 ))
 							{			
-									NRF_LOG_INFO("Recieved queue clock hour %d\r\n",hour);
 									if (xQueueSend( data_struct_print, ( void * ) &slaves, ( TickType_t ) 1 ) != pdPASS )
 									{
-										NRF_LOG_INFO("Failed to post the message, even after 1 ticks.\r\n");
+										NRF_LOG_INFO("Failed to post the data_struct_print message controller_task, even after 1 ticks.\r\n");
 									}
 							}
-						}		
-	
+						}
+						
 						lowest_priority_to_turn_off =19;
 						
 						if(((power > p_limits->preferred_consume_limit )||( 16 <= hour && 19 > hour )||( 6 <= hour && 8 > hour))&&( power > 0)) // last bit power > 0 is for further development with positive cunsumption
@@ -1557,7 +1569,7 @@ static void controller_task (void * arg)
 										// obtained the semaphore to get here.
 									}else NRF_LOG_INFO("\t Give data_struct_mutex cont\n\r");
 									
-									if(pdPASS != xTimerStart(slave_off_timer, OSTIMER_WAIT_FOR_QUEUE))
+									if(pdPASS != xTimerStart(slave_on_timer, OSTIMER_WAIT_FOR_QUEUE))
 									{
 										APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
 									}
@@ -1606,11 +1618,11 @@ static void update_clock(void)
 	static uint8_t minutes = 00;
 	static uint8_t seconds =00;
 
-	if(xQueueReceive(clock_hour_from_app, &(hour), ( TickType_t ) 0 ))
+	if(xQueueReceiveFromISR(clock_hour_from_app, &(hour),NULL))
 	{
 		NRF_LOG_INFO("\tHour updated to %d \r\n",hour);
 	}
-	if(xQueueReceive(clock_minutes_from_app, &(minutes), ( TickType_t ) 0 ))
+	if(xQueueReceiveFromISR(clock_minutes_from_app, &(minutes), NULL))
 	{
 		NRF_LOG_INFO("\tMinutes updated %d \r\n",minutes);
 	}
@@ -1659,8 +1671,6 @@ static void ack_timer_handler(void * p_context)
 		{
 			xQueueSend( slave_nr_send_data, ( void * ) &i, ( TickType_t ) 10 );
 		}
-				
-				
 	}
 }
 
@@ -1741,106 +1751,149 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
 {
 	struct My_data_pointers *slaves;
 	struct limits*p_limits;
-	uint8_t temp;
-	uint8_t slave_nr;
-	uint8_t hour;
-	uint8_t minute;
-	uint32_t max_power_slave;
+	static uint8_t temp;
+	static uint8_t slave_nr;
+	static uint8_t hour;
+	static uint8_t minute;
+	static uint32_t max_power_slave;
+	static uint16_t err_code;
+	char number[20]="";
+	char msg[20]="";
 	
 	
 	if(0 != data_struct)
 	{
 		if(xQueuePeek(data_struct, &(slaves), ( TickType_t ) 0 ))
-		{
-		}	
-		if('s'==p_data[0]&&'l'==p_data[1]&& 'a'== p_data[2]&& 'v'==p_data[3]&& 'e'== p_data[4])
-		{
-			slave_nr = (p_data[5]-'0')*10 + (p_data[6]-'0');
-			temp = (p_data[7]-'0')*10 + (p_data[8]-'0');
-			NRF_LOG_INFO("slave_nr: %d temp: %d \r\n",slave_nr,temp);
+		{				
+			// slaves now points to the struct xMy_data_pointers variable posted
+      // by controller_task, but the item still remains on the queue.
 			
-			if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 ) == pdTRUE))
+			// Received temp
+			if('t'==p_data[0]&&'e'==p_data[1]&& 'm'== p_data[2]&& 'p'==p_data[3])
 			{
-				NRF_LOG_INFO("\t Take data_struct_mutex nus\n\r");
-				if('-' == p_data[9])
-				{
-					slaves->pMy_datas[slave_nr]->wanted_temp = -temp;
-									
-				}else
-				{
-					slaves->pMy_datas[slave_nr]->wanted_temp = temp;
-				}
-				if(xSemaphoreGive(data_struct_mutex) != pdTRUE)
-				{
-					// We would not expect this call to fail because we must have
-					// obtained the semaphore to get here
-				}else NRF_LOG_INFO("\t give data_struct_mutex nus \n\r");
-			}
-			
-			if (xQueueSend( slave_nr_send_data, ( void * ) &slave_nr, ( TickType_t ) 0 ) != pdPASS )
-			{
-						NRF_LOG_INFO("Failed to post slave_nr from nus, even after 0 ticks.\r\n");
-			}
-		}
-		else if('c'==p_data[0]&&'l'==p_data[1]&& 'o'== p_data[2]&& 'c'==p_data[3]&& 'k'== p_data[4])
-		{		
-					hour = (p_data[5]-'0')*10 + (p_data[6]-'0');
-					minute = (p_data[7]-'0')*10 + (p_data[8]-'0');
-					if(hour <24 && minute <60)
-					{
-						if(xQueueSend( clock_minutes_from_app, ( void * ) &minute, ( TickType_t ) 10 ) !=  pdPASS )
+						slave_nr = (p_data[4]-'0')*10 + (p_data[5]-'0');
+						temp = (p_data[6]-'0')*10 + (p_data[7]-'0');
+						NRF_LOG_INFO("slave_nr: %d temp: %d \r\n",slave_nr,temp);
+						
+						if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 ) == pdTRUE))
 						{
-									NRF_LOG_INFO("Failed to post the message, even after 1 ticks.\r\n");
+							if('-' == p_data[8])
+							{
+								slaves->pMy_datas[slave_nr]->wanted_temp = -temp;									
+							}else
+							{
+								slaves->pMy_datas[slave_nr]->wanted_temp = temp;
+							}
+							
+							sprintf(msg,"Slave:%d\n",slave_nr);
+							sprintf(number,"Set to:%uC\n",slaves->pMy_datas[slave_nr]->wanted_temp);
+							
+							if(xSemaphoreGive(data_struct_mutex) != pdTRUE)
+							{
+								// We would not expect this call to fail because we must have
+								// obtained the semaphore to get here
+								 NRF_LOG_INFO("\t Failed to give data_struct_mutex nus \n\r");
+							}
+						}else NRF_LOG_INFO("\t Failed to take data_struct_mutex nus\n\r");
+						
+						if (xQueueSend( slave_nr_send_data, ( void * ) &slave_nr, ( TickType_t ) 0 ) != pdPASS )
+						{
+									NRF_LOG_INFO("Failed to post slave_nr from nus, even after 0 ticks.\r\n");
 						}
-						if(xQueueSend( clock_hour_from_app, ( void * ) &hour, ( TickType_t ) 10 ) !=  pdPASS )
+			}	// Received time
+			else if('c'==p_data[0]&&'l'==p_data[1]&& 'o'== p_data[2]&& 'c'==p_data[3]&& 'k'== p_data[4])
+			{		
+						hour = (p_data[5]-'0')*10 + (p_data[6]-'0');
+						minute = (p_data[7]-'0')*10 + (p_data[8]-'0');
+						if(hour <24 && minute <60)
 						{
-									NRF_LOG_INFO("Failed to post the message, even after 1 ticks.\r\n");
-						}				
-					}
-					else
-					{
-								NRF_LOG_INFO("Wrong value on sent time\r\n");
-					}
-					
-		}
-		else if('p'==p_data[0]&&'o'==p_data[1]&& 'w'== p_data[2]&& 'e'==p_data[3]&& 'r'== p_data[4])
-		{
-					slave_nr = (p_data[5]-'0')*10 + (p_data[6]-'0');
-					max_power_slave = (p_data[7]-'0')*1000 + (p_data[8]-'0')*100 + (p_data[9]-'0')*10 + (p_data[10]-'0');
-					slaves->pMy_datas[slave_nr]->max_power = max_power_slave;
-					NRF_LOG_INFO("Power updates to %d on slave %d  \r\n",slaves->pMy_datas[slave_nr]->max_power, slave_nr);
+							if(xQueueSend( clock_minutes_from_app, ( void * ) &minute, ( TickType_t ) 10 ) !=  pdPASS )
+							{
+										NRF_LOG_INFO("Failed to post the message, even after 1 ticks.\r\n");
+							}
+							if(xQueueSend( clock_hour_from_app, ( void * ) &hour, ( TickType_t ) 10 ) !=  pdPASS )
+							{
+										NRF_LOG_INFO("Failed to post the message, even after 1 ticks.\r\n");
+							}	
+							sprintf(msg,"Clock set: %d:%d \n",hour,minute);
+						}
+						else
+						{
+									NRF_LOG_INFO("Wrong value on sent time\r\n");
+									(void)strncpy(msg,"Wrong value",sizeof(msg));
+						}
+						
+			}	// Received max power for slave
+			else if('p'==p_data[0]&&'o'==p_data[1]&& 'w'== p_data[2]&& 'e'==p_data[3]&& 'r'== p_data[4])
+			{
+						slave_nr = (p_data[5]-'0')*10 + (p_data[6]-'0');
+						max_power_slave = (p_data[7]-'0')*1000 + (p_data[8]-'0')*100 + (p_data[9]-'0')*10 + (p_data[10]-'0');
+						slaves->pMy_datas[slave_nr]->max_power = max_power_slave;
+						NRF_LOG_INFO("Power updates to %d on slave %d  \r\n",slaves->pMy_datas[slave_nr]->max_power, slave_nr);
+				
+						sprintf(msg,"Slave:%d\n",slave_nr);
+						sprintf(number,"Set to: %"PRIu32" Watt\n",max_power_slave);
+				
+						if (xQueueSend( slave_nr_send_data, ( void * ) &slave_nr, ( TickType_t ) 0 ) != pdPASS )
+						{
+							NRF_LOG_INFO("Failed to post slave_nr from nus, even after 0 ticks.\r\n");
+						}
 
-		}
-		else if('l'==p_data[0]&&'i'==p_data[1]&& 'm'== p_data[2]&& 'i'==p_data[3]&& 't'== p_data[4])
-		{	
-					if(xQueuePeek(queue_limit_struct, &(p_limits), ( TickType_t ) 10 ) )
-					{
-							if('p'== p_data[5])
-							{
-								p_limits->preferred_consume_limit = (p_data[6]-'0')*10000+(p_data[7]-'0')*1000 + (p_data[8]-'0')*100 + (p_data[9]-'0')*10 + (p_data[10]-'0');
-							}
-							else if('n'== p_data[5]) 
-							{
-								p_limits->normal_max_consume_limit = (p_data[6]-'0')*10000+(p_data[7]-'0')*1000 + (p_data[8]-'0')*100 + (p_data[9]-'0')*10 + (p_data[10]-'0');
-							}
-							else if('h'== p_data[5])
-							{
-								p_limits->max_consume_limit = (p_data[6]-'0')*10000+(p_data[7]-'0')*1000 + (p_data[8]-'0')*100 + (p_data[9]-'0')*10 + (p_data[10]-'0');
-							}
-							else
-								NRF_LOG_INFO("Wrong command byte 5 should be 'p', 'n' or 'h' when setting limits \r\n ");
-					
-					}
+		
+			}	// Received max power limits
+			else if('l'==p_data[0]&&'i'==p_data[1]&& 'm'== p_data[2]&& 'i'==p_data[3]&& 't'== p_data[4])
+			{	
+						if(xQueuePeek(queue_limit_struct, &(p_limits), ( TickType_t ) 10 ) )
+						{
+								//Received preferred consume limit
+								if('p'== p_data[5])
+								{
+									p_limits->preferred_consume_limit = (p_data[6]-'0')*10000+(p_data[7]-'0')*1000 + (p_data[8]-'0')*100 + (p_data[9]-'0')*10 + (p_data[10]-'0');
+									sprintf(msg,"Pref lim set\n");
+									sprintf(number,"Set to: %"PRIu32" Watt\n",p_limits->preferred_consume_limit);
+								}	//Received normal consume limit
+								else if('n'== p_data[5]) 
+								{	
+									p_limits->normal_max_consume_limit = (p_data[6]-'0')*10000+(p_data[7]-'0')*1000 + (p_data[8]-'0')*100 + (p_data[9]-'0')*10 + (p_data[10]-'0');
+									sprintf(msg,"Norm lim set\n");
+									sprintf(number,"Set to: %"PRIu32" Watt\n",p_limits->normal_max_consume_limit);
+								}	//Received max consume limet
+								else if('h'== p_data[5])
+								{
+									p_limits->max_consume_limit = (p_data[6]-'0')*10000+(p_data[7]-'0')*1000 + (p_data[8]-'0')*100 + (p_data[9]-'0')*10 + (p_data[10]-'0');
+									sprintf(msg,"Max cons lim set\n");
+									sprintf(number,"Set to: %"PRIu32" Watt\n",p_limits->max_consume_limit);
+								}
+								else
+								{
+										(void)strncpy(msg, "Wrong cmd",sizeof(msg));
+										NRF_LOG_INFO("Wrong command byte 5 should be 'p', 'n' or 'h' when setting limits \r\n ");
+								}
+						}
+			}
+			else
+			{
+				
+				NRF_LOG_INFO("wrong NUS command \r\n");
+				(void)strncpy(msg,"Wrong NUS cmd",sizeof(msg));
+			}
+			
+			err_code = ble_nus_string_send(&m_nus, (uint8_t*)msg, strlen(msg));
+			if (err_code != 0)
+			{
+					NRF_LOG_INFO("\terr_code in nus_data_handler: %d \r\n",err_code);
+			}
+			
+			err_code = ble_nus_string_send(&m_nus, (uint8_t*)number, strlen(number));
+			if (err_code != 0)
+			{
+					NRF_LOG_INFO("\terr_code in nus_data_handler: %d \r\n",err_code);
+			}
 		}
 		else
 		{
-			NRF_LOG_INFO("wrong command: Type 'slavexxyyz' xx= slave_nr yy= temp z = - if under 0C \r\n");
-			NRF_LOG_INFO("or clockxxyy to set clock \r\n");
+			NRF_LOG_INFO("Data_struct not received in nus data handler\r\n");
 		}
-	}
-	else
-	{
-		NRF_LOG_INFO("Data_struct not received in nus data handler\r\n");
 	}
 }
 
@@ -1916,7 +1969,6 @@ static void advertising_init(void)
 		options.ble_adv_fast_interval = APP_ADV_INTERVAL;
     options.ble_adv_fast_timeout  = APP_ADV_TIMEOUT_IN_SECONDS;
 		
-
     err_code = ble_advertising_init(&advdata, NULL, &options, on_adv_evt, NULL); // NULL chaged from &scanrsp
     APP_ERROR_CHECK(err_code);
 }
@@ -2575,8 +2627,8 @@ int main(void)
 			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
 		}
 		
-		slave_off_timer = xTimerCreate("Slave_off_state", SLAVE_OFF_INTERVAL, pdTRUE, NULL, slave_on_timeout);
-		if(NULL == slave_off_timer)
+		slave_on_timer = xTimerCreate("Slave_off_state", SLAVE_OFF_INTERVAL, pdTRUE, NULL, slave_on_timeout);
+		if(NULL == slave_on_timer)
 		{
 			APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
 		}

@@ -140,7 +140,8 @@ _build/nrf52832_xxaa_main.c.o: ../../../main.c \
  ../../../m_bus_receiver.h \
  c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\math.h \
  c:\sdk\external\segger_rtt\segger_rtt.h \
- c:\sdk\external\segger_rtt\SEGGER_RTT_Conf.h
+ c:\sdk\external\segger_rtt\SEGGER_RTT_Conf.h \
+ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\inttypes.h
 
 c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\lib\gcc\arm-none-eabi\4.9.3\include\stdint.h:
 
@@ -429,3 +430,5 @@ c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\inc
 c:\sdk\external\segger_rtt\segger_rtt.h:
 
 c:\sdk\external\segger_rtt\SEGGER_RTT_Conf.h:
+
+c:\program\ files\ (x86)\gnu\ tools\ arm\ embedded\4.9\ 2015q3\arm-none-eabi\include\inttypes.h:
