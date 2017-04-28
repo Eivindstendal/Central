@@ -144,6 +144,7 @@ static SemaphoreHandle_t slave_on_bin_semaphore;
 static SemaphoreHandle_t uart_search;		
 static SemaphoreHandle_t m_bus_adr_searc;					//Visst en skal trykke for å søke etter adresser. Kanskje legge inn denne funksjonen.
 static SemaphoreHandle_t m_bus_timer_timout;
+static SemaphoreHandle_t power_received_controller;
 
 static QueueHandle_t uart_event_queue;
 static QueueHandle_t m_bus_adr_queue;
@@ -156,6 +157,7 @@ static QueueHandle_t data_struct;
 static QueueHandle_t data_struct_print;
 static QueueHandle_t slave_nr_send_data;	
 static QueueHandle_t queue_limit_struct;
+static QueueHandle_t slave_reset;
 
 static TaskHandle_t m_ble_stack_thread;       /**< Definition of BLE stack thread. */
 static TaskHandle_t m_uart_search_thread;     //Task for the uart thread.
@@ -168,6 +170,7 @@ static TaskHandle_t m_uart_task;							//Testing for å lage egen task som tar se
 static TimerHandle_t m_bus_receiver_timer;   //Definition of the m_bus_receiver timer.
 static TimerHandle_t slave_on_timer;
 
+static void adv_scan_start(void);
 static uint8_t curr_connection = 0; //
 static const char m_target_periph_name[] = "7dk29kshnsdc";          /**< If you want to connect to a peripheral using a given advertising name, type its name here. */
 
@@ -261,12 +264,17 @@ static void scan_start(void)
     ret_code_t ret;
 
     ret = sd_ble_gap_scan_start(&m_scan_params);
-
-		APP_ERROR_CHECK(ret);
-
-    ret = bsp_indication_set(BSP_INDICATE_SCANNING);
-    APP_ERROR_CHECK(ret);
-		NRF_LOG_INFO("	Uart c Scan started\r\n");
+		if(ret == 0)
+		{
+			NRF_LOG_INFO("	Uart c Scan started\r\n");
+			ret = bsp_indication_set(BSP_INDICATE_SCANNING);
+			if(ret != 0)
+				NRF_LOG_INFO("\tError msg: bsp_indication_set: 0x%02x \r\n",ret);
+		}
+		else
+		{
+			NRF_LOG_INFO("\tError msg: sd_ble_gap_scan_start: 0x%02x \r\n",ret);
+		}
 }
 
 
@@ -361,7 +369,7 @@ static void send_data_task(void * arg)
 					
 					NRF_LOG_INFO("\tSlave number recieved in send_data_task: %u  \r\n",slave_nr);
 					
-					if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 ) == pdTRUE))
+					if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 )) == pdTRUE)
 					{	
 							data[0] = SLAVE_TYPE;
 							data[1] = slaves->pMy_datas[slave_nr]->address;
@@ -531,17 +539,18 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 									NRF_LOG_INFO("	Recieved data from peripheral type: %c \r\n\n",p_ble_nus_evt->p_data[0]);
 								
 								
-									if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 ) == pdTRUE))
+									if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 )) == pdTRUE)
 									{
 										
-										if(slaves->pMy_datas[slave_nr]->priority != p_ble_nus_evt->p_data[6])
+										if(slaves->pMy_datas[slave_nr]->priority != p_ble_nus_evt->p_data[6] && p_ble_nus_evt->p_data[6] <= 19)
 										{
 											slaves->pMy_datas[slave_nr]->priority = p_ble_nus_evt->p_data[6];
 											if(xSemaphoreGive(slave_on_bin_semaphore) != pdTRUE)
 											{
 													// We would not expect this call to fail because we must have
 													// obtained the semaphore to get here
-											}										
+											}
+											else NRF_LOG_INFO("slave_on_bin_semaphore given from nus_c \r\n\n");
 										}
 											
 										
@@ -565,7 +574,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 											xEventGroupClearBits(waiting_ack, 1 << slave_nr );
 										}
 										
-  									xSemaphoreGive(data_struct_mutex);
+  									UNUSED_VARIABLE(xSemaphoreGive(data_struct_mutex));
 									}else
 									{
 										NRF_LOG_INFO("	Can not take data_struct_mutex in ble_nus_c %d \r\n\n");
@@ -580,7 +589,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 								case 'C':
 									
 									NRF_LOG_INFO("	Recieved data from peripheral type: %c \r\n\n",p_ble_nus_evt->p_data[0]);
-									if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 ) == pdTRUE))
+									if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 )) == pdTRUE)
 									{
 										//NRF_LOG_INFO("\t Take data_struct_mutex nus_c \n\r");
 										slaves->pMy_datas[slave_nr]->type = p_ble_nus_evt->p_data[0]; 
@@ -601,7 +610,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 											xEventGroupClearBits(waiting_ack, 1 << slave_nr );
 										}
 										
-  									xSemaphoreGive(data_struct_mutex);
+  									UNUSED_VARIABLE(xSemaphoreGive(data_struct_mutex));
 									}else
 									{
 										NRF_LOG_INFO("	Can not take data_struct_mutex in ble_nus_c %d \r\n\n");
@@ -622,7 +631,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 								break;
 							}
 
-						if(255 == p_ble_nus_evt->p_data[1] || 0 == p_ble_nus_evt->p_data[2])
+						if(255 == p_ble_nus_evt->p_data[1] || 0 == p_ble_nus_evt->p_data[2] )
 						{
 								//send_address or ack
 							if ( 	xQueueSend( slave_nr_send_data, ( void * ) &slave_nr, ( TickType_t ) 10 ) != pdPASS )
@@ -635,7 +644,8 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 					
         case BLE_NUS_C_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected\r\n");
-            scan_start();
+            //scan_start();
+						adv_scan_start();
             break;
     }
 }
@@ -836,24 +846,31 @@ static void on_ble_central_evt(ble_evt_t * p_ble_evt)
 		case BLE_GAP_EVT_DISCONNECTED:
         {
             uint32_t central_link_cnt; // Number of central links.
-
+						uint8_t slave_nr =  p_gap_evt->conn_handle;
+					
             NRF_LOG_INFO("LBS central link 0x%x disconnected (reason: 0x%x)\r\n",
                          p_gap_evt->conn_handle,
                          p_gap_evt->params.disconnected.reason);
-
+					
+							if ( 	xQueueSend( slave_reset, ( void * ) &(slave_nr), ( TickType_t )10 ) != pdPASS )
+							{
+										NRF_LOG_INFO("Failed to post the slave_reset message, even after 0 ticks..\r\n");
+							}
+					
+							
             // Start scanning
             scan_start();
 
             // Update LEDs status.
             err_code = bsp_indication_set(BSP_INDICATE_SCANNING);
-						APP_ERROR_CHECK(err_code);
+						//APP_ERROR_CHECK(err_code);
 			
             central_link_cnt = ble_conn_state_n_centrals();
             if (central_link_cnt == 0)
             {
                 bsp_board_led_off(1);
             }
-        } 	
+          } 	
 			break;
 
         case BLE_GAP_EVT_TIMEOUT:
@@ -894,14 +911,14 @@ static void on_ble_central_evt(ble_evt_t * p_ble_evt)
             //NRF_LOG_DEBUG("GATT Server Timeout.\r\n");
             err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-            APP_ERROR_CHECK(err_code);
+						APP_ERROR_CHECK(err_code);
             break; // BLE_GATTS_EVT_TIMEOUT
 
 #if (NRF_SD_BLE_API_VERSION == 3)
         case BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST:
             err_code = sd_ble_gatts_exchange_mtu_reply(p_ble_evt->evt.gatts_evt.conn_handle,
                                                        NRF_BLE_MAX_MTU_SIZE);
-				APP_ERROR_CHECK(err_code);
+						APP_ERROR_CHECK(err_code);
             break; // BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST
 #endif
 
@@ -928,7 +945,7 @@ static void on_ble_peripheral_evt(ble_evt_t * p_ble_evt)
             break; //BLE_GAP_EVT_CONNECTED
 
         case BLE_GAP_EVT_DISCONNECTED:
-            NRF_LOG_INFO("Phone disconnected\r\n");
+            //NRF_LOG_INFO("Phone disconnected\r\n");
             err_code = bsp_indication_set(BSP_INDICATE_IDLE);
             APP_ERROR_CHECK(err_code);
             break;//BLE_GAP_EVT_DISCONNECTED
@@ -1285,7 +1302,7 @@ static uint8_t find_highest_priority(void)
 			// by controller_task, but the item still remains on the queue.
 		
 		
-			if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 ) == pdTRUE))
+			if(xSemaphoreTake(data_struct_mutex, ( TickType_t ) 10 ) == pdTRUE)
 			{
 
 				for(int i=0; i<= CENTRAL_LINK_COUNT-1; i++)
@@ -1342,7 +1359,7 @@ static void slave_on(void)
 																															(slaves->pMy_datas[slave_nr]->priority <= 10 && power < p_limits->max_consume_limit ))
 						{	
 	
-							if(slave_nr != 0xFF && (xSemaphoreTake(data_struct_mutex, (( TickType_t ) 100 ) == pdTRUE)))
+							if(slave_nr != 0xFF && (xSemaphoreTake(data_struct_mutex, (( TickType_t ) 100 )) == pdTRUE))
 							{
 								NRF_LOG_INFO("\t Turn on slave %d: \n\r",slave_nr);
 								switch (slaves->pMy_datas[slave_nr]->type)
@@ -1421,11 +1438,12 @@ static void slave_on(void)
  */
 static void slave_on_timeout(TimerHandle_t xTimer)
 {
-	if(xSemaphoreGive(slave_on_bin_semaphore) != pdTRUE)
+	if(xSemaphoreGiveFromISR(slave_on_bin_semaphore,NULL) != pdTRUE)
 		{
 				// We would not expect this call to fail because we must have
 				// obtained the semaphore to get here
 		}
+		else NRF_LOG_INFO("slave_on_bin_semaphore given from slave_on_timeout\r\n");
 }
 
 
@@ -1442,7 +1460,9 @@ static void controller_task (void * arg)
    	static uint8_t hour;
 		static uint32_t power;
 		static uint8_t slave_nr;
+		static uint8_t slave_nr_clear;
 		static uint8_t lowest_priority_to_turn_off;
+		
 	
   	static struct My_data_pointers *slaves;	
   	struct aMy_data xMy_datas[CENTRAL_LINK_COUNT];
@@ -1471,49 +1491,55 @@ static void controller_task (void * arg)
 			xMy_datas[i]= empty_struct;
 			slaves->pMy_datas[i] = &xMy_datas[i];
 		}
-		
-		if ( 	xQueueSend( data_struct, ( void * ) &(slaves), ( TickType_t ) 100 ) != pdPASS )
+	
+		if ( 	xQueueSend( data_struct, ( void * ) &(slaves),portMAX_DELAY ) != pdPASS )
 		{
 					NRF_LOG_INFO("Failed to post the data_struct message, even after 100 ticks..\r\n");
 		}else NRF_LOG_INFO("\tDatastruct sendt to functions\r\n");
 
 		
-		if ( 	xQueueSend( queue_limit_struct, ( void * ) &(p_limits), ( TickType_t ) 100 ) != pdPASS )
+		if ( 	xQueueSend( queue_limit_struct, ( void * ) &(p_limits), portMAX_DELAY ) != pdPASS )
 		{
 					NRF_LOG_INFO("Failed to post the queue_limit_struct message, even after 100 ticks..\r\n");
 		}
 
-		
-		if(xSemaphoreTake(slave_on_bin_semaphore, (( TickType_t ) 10 ) != pdTRUE))
-		{
-			NRF_LOG_INFO("Init slave_on_sempahore failed in controller task \r\n");
-		}
-		
+
 
 	
 	while(1)
 	{
 		
-				
+				if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 0 )) == pdTRUE)
+				{
+					if(xQueueReceive(slave_reset, &(slave_nr_clear), ( TickType_t ) 0 ))
+					{
+						slaves->pMy_datas[slave_nr_clear] = &empty_struct;
+					}
+					if( xSemaphoreGive( data_struct_mutex ) != pdTRUE )
+					{
+										// We would not expect this call to fail because we must have
+										// obtained the semaphore to get here.
+					}
+				}
 
-				if(0!= power_msg_queue)
+				if(xSemaphoreTake(power_received_controller,portMAX_DELAY))
 				{
 
 					if(xQueuePeek(power_msg_queue, &(power), ( TickType_t ) 10 ) )
 					{
 							
 						print_data();
-						if(xSemaphoreTake(slave_on_bin_semaphore, (( TickType_t ) 0 ) == pdTRUE))  
+						if(xSemaphoreTake(slave_on_bin_semaphore, (( TickType_t ) 0 )) == pdTRUE)
 						{
 							// When connected to AMS with positive and negative power there has to be a change in this.  
 							// Eks: if(xSemaphoreTake(slave_on_bin_semaphore, (( TickType_t ) 10 ) == pdTRUE)|| (power < 0 && tot_slaves_off >0 )
 							slave_on();
-							
+							NRF_LOG_INFO("Init slave_on_sempahore taken here \r\n");
 						}
 
 						if(0 != clock_hour)
 						{
-							if(xQueueReceive(clock_hour, &(hour), ( TickType_t ) 10 ))
+							if(xQueueReceive(clock_hour, &(hour), ( TickType_t ) 0 ))
 							{			
 									if (xQueueSend( data_struct_print, ( void * ) &slaves, ( TickType_t ) 1 ) != pdPASS )
 									{
@@ -1537,7 +1563,7 @@ static void controller_task (void * arg)
 								lowest_priority_to_turn_off = 1;
 							}
 							//NRF_LOG_INFO("Lowest priority to turn off %d \r\n",lowest_priority_to_turn_off);
-							if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 ) == pdTRUE))
+							if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 )) == pdTRUE)
 							{
 								
 								if( 0xFF != slave_nr && lowest_priority_to_turn_off < slaves->pMy_datas[slave_nr]->priority &&slaves->pMy_datas[slave_nr]->state > 1 )
@@ -1694,6 +1720,7 @@ static void ack_timer_handler(void * p_context)
 		if(1 == (bits & (1 << i)))						//if(true == waiting_ack[i])(i);
 		{
 			xQueueSend( slave_nr_send_data, ( void * ) &i, ( TickType_t ) 10 );
+			NRF_LOG_INFO("	ACK not received, resending data t slave %d  \r\n",i);
 		}
 	}
 }
@@ -1799,7 +1826,7 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
 						temp = (p_data[6]-'0')*10 + (p_data[7]-'0');
 						NRF_LOG_INFO("slave_nr: %d temp: %d \r\n",slave_nr,temp);
 						
-						if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 ) == pdTRUE))
+						if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 )) == pdTRUE)
 						{
 							if('-' == p_data[8])
 							{
@@ -2031,14 +2058,18 @@ static void conn_params_init(void)
 
 /**@brief Function for initiating advertising and scanning.
  */
-static void adv_scan_start(void)
+void adv_scan_start(void)
 {
     ret_code_t err_code;
     uint32_t count;
 
     //check if there are no flash operations in progress
     err_code = fs_queued_op_count_get(&count);
-    APP_ERROR_CHECK(err_code);
+		if(0 != err_code)
+		{
+			NRF_LOG_INFO("\tError_ ble_advertising_start: \r\n",err_code);
+		}
+  
 
     if (count == 0)
     {
@@ -2051,7 +2082,10 @@ static void adv_scan_start(void)
 				
         // Start advertising.
         err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
-        APP_ERROR_CHECK(err_code);
+       if(err_code != 0)
+			 {
+				 NRF_LOG_INFO("\tError_ ble_advertising_start: \r\n",err_code);
+			 }
     }
 }
 
@@ -2213,7 +2247,7 @@ static void ble_stack_thread(void * arg)
 	uart_init();
 	err_code = NRF_LOG_INIT(NULL);
 	APP_ERROR_CHECK(err_code);
-			
+	UNUSED_VARIABLE(err_code);/// lagt inn 28.04		
 	
 	db_discovery_init();
 	ble_stack_init();
@@ -2271,7 +2305,6 @@ static void m_bus_timer_receiver_timeout(TimerHandle_t xTimer) //Tror denne kan 
 static void uart_task(void * arg)
 {
 	
-	static struct aMessage *myMessage;
 	static uint8_t simple_counter=0;
 	static uint8_t adr_counter=0;
 	static uart_reading_states m_uart_reading_states;
@@ -2279,6 +2312,7 @@ static void uart_task(void * arg)
 	my_adr_struct = (struct adr_of_m_bus_struct*) arg;
 	static uint8_t response_array[62];
 	static uint32_t power_32;
+	
 
 	if (pdPASS == xTimerStart(m_bus_receiver_timer, OSTIMER_WAIT_FOR_QUEUE))
 	{
@@ -2307,6 +2341,8 @@ static void uart_task(void * arg)
 				{
 					if(xSemaphoreTake(uart_mutex_tx, portMAX_DELAY) == pdTRUE)  //Endring her å. For her sender jeg kun til en adresse. 
 					{
+						while(app_uart_flush() !=NRF_SUCCESS);
+						
 						m_bus_send_request((uint8_t) my_adr_struct->adr_array[adr_counter], C_FIELD_FCB_NOT_SET_REQUEST);
 						//NRF_LOG_INFO("Sending request, adr: %i \r\n", my_adr_struct->adr_array[adr_counter]);
 						//NRF_LOG_INFO("adr_counter: %i\r\n", adr_counter);
@@ -2360,7 +2396,6 @@ static void uart_task(void * arg)
 								NRF_LOG_INFO("response_array[0]=%0x, response_array[1]=%0x, response_array[2]=%0x, response_array[3]=%0x\r\n\r\n",response_array[0], response_array[1], response_array[2], response_array[3]);
 								if(xSemaphoreTake(m_bus_timer_timout,portMAX_DELAY) == pdTRUE)
 								{
-									while(app_uart_flush() !=NRF_SUCCESS);
 									m_uart_reading_states = SENDING_REQUD2;
 									NRF_LOG_INFO("Waiting for a new timeout before start sending new request \r\n");
 								}
@@ -2390,24 +2425,25 @@ static void uart_task(void * arg)
 								//myMessage->Partial_power = bcdtobyte(response_array[29]) + (100*bcdtobyte(response_array[30])) + (10000*bcdtobyte(response_array[31])) + (1000000*bcdtobyte(response_array[32]));
 								//myMessage->Voltage = (response_array[38]) + (response_array[39]<<8);
 								//myMessage->Current = response_array[45] + (response_array[46]<<8);
-								myMessage->Power = (response_array[51] + (response_array[52]<<8))*10;
+								//myMessage->Power = (response_array[51] + (response_array[52]<<8))*10;
 								//myMessage->Reactive_power = response_array[58] + (response_array[59]<<8);
 								
 //								if( uart_event_queue != 0 )
-								
+								//if(power_msg_queue !=0)
+								//{
 									//myMessage = &xMessage;
 									//xQueueSend( uart_event_queue, ( void * ) &myMessage, ( TickType_t ) 0 );
-								power_32 = (response_array[51] + (response_array[52]<<8))*10;
+									power_32 = (response_array[51] + (response_array[52]<<8))*10;
 									//NRF_LOG_INFO("Sendt queue\r\n");
-								if (xQueueOverwrite( power_msg_queue, ( void * ) &(power_32)) == pdPASS )										// changed from 	if (xQueueOverwrite( power_msg_queue, ( void * ) &myMessage->Power) != pdPASS )if( xQueueSend( power_msg_queue,( void * ) &myMessage->Power,( TickType_t ) 10 ) != pdPASS )
+								if (xQueueOverwrite(power_msg_queue, ( void * ) &(power_32)) == pdPASS )										// changed from 	if (xQueueOverwrite( power_msg_queue, ( void * ) &myMessage->Power) != pdPASS )if( xQueueSend( power_msg_queue,( void * ) &myMessage->Power,( TickType_t ) 10 ) != pdPASS )
 								{
-										
-								}								
-								else
-								{
-									while(app_uart_flush() !=NRF_SUCCESS);
-									NRF_LOG_INFO("Failed to post my_msg_power to queue , even after 0 ticks.\r\n");
+									UNUSED_VARIABLE(xSemaphoreGive(power_received_controller));
+
 								}
+								else 
+									NRF_LOG_INFO("Failed to post my_msg_power to queue , even after 0 ticks.\r\n");
+								
+								
 								m_uart_reading_states = SENDING_REQUD2;
 							}
 							
@@ -2467,7 +2503,7 @@ static void uart_search_thread(void * arg)
 					if(xSemaphoreTake(uart_mutex_tx, portMAX_DELAY) == pdTRUE)  //Endring her å. 
 					{
 						m_bus_receiver_init(adr_nr);
-						NRF_LOG_INFO("Sending init, adr: %i \r\n", adr_nr);
+						//NRF_LOG_INFO("Sending init, adr: %i \r\n", adr_nr);
 						
 						if ( xSemaphoreGive(uart_mutex_tx ) != pdTRUE )
 						{
@@ -2499,14 +2535,14 @@ static void uart_search_thread(void * arg)
 						{
 							adr_nr++;
 							m_uart_event_states = SEARCING_NEW_ADR;
-							NRF_LOG_INFO("Wrong Response\r\n");
+							//NRF_LOG_INFO("Wrong Response\r\n");
 						}
 					}
 					else
 					{
 						adr_nr++;
 						m_uart_event_states = SEARCING_NEW_ADR;
-						NRF_LOG_INFO("No response\r\n");
+						//NRF_LOG_INFO("No response\r\n");
 					}
 				}
 				else
@@ -2639,6 +2675,13 @@ int main(void)
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
 		
+			//Init a semaphore for the controller_thread_task
+		power_received_controller = xSemaphoreCreateBinary();
+		if (NULL == power_received_controller)
+    {
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
+		
 		//Init a semaphore for the Uart thread
 		uart_event_rx_ready = xSemaphoreCreateBinary();
 		if (NULL == uart_event_rx_ready)
@@ -2697,6 +2740,12 @@ int main(void)
 		
 		
 		// Create Queues 
+		slave_reset= xQueueCreate (1, sizeof (uint8_t));
+		if (NULL == slave_reset)
+    {
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
+		
 		m_bus_adr_queue = xQueueCreate (1, sizeof (uint8_t));
 		if (NULL == m_bus_adr_queue)
     {
