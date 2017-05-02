@@ -139,6 +139,7 @@ EventGroupHandle_t waiting_ack;
 static SemaphoreHandle_t m_ble_event_ready;  /**< Semaphore raised if there is a new event to be processed in the BLE thread. */
 static SemaphoreHandle_t uart_event_rx_ready; //Semaphore raised if there is a new event to be processed in the uart thread
 static SemaphoreHandle_t uart_mutex_tx;          //Mutex for the uart module. 
+static SemaphoreHandle_t ble_nus_mutex;
 static SemaphoreHandle_t data_struct_mutex;
 static SemaphoreHandle_t slave_on_bin_semaphore;
 static SemaphoreHandle_t uart_search;		
@@ -171,7 +172,7 @@ static TimerHandle_t m_bus_receiver_timer;   //Definition of the m_bus_receiver 
 static TimerHandle_t slave_on_timer;
 
 static void adv_scan_start(void);
-static uint8_t curr_connection = 0; //
+//static uint8_t curr_connection = 0; //
 static const char m_target_periph_name[] = "7dk29kshnsdc";          /**< If you want to connect to a peripheral using a given advertising name, type its name here. */
 
 
@@ -293,7 +294,7 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
                     p_evt->conn_handle);
 					
     ble_nus_c_on_db_disc_evt(&m_ble_nus_c[p_evt->conn_handle], p_evt);
-	curr_connection = p_evt->conn_handle;
+	//curr_connection = p_evt->conn_handle;
 }
 
 
@@ -388,7 +389,7 @@ static void send_data_task(void * arg)
 						// If received ack
 						data[2] = 1;
 						err_code = ble_nus_c_string_send(&m_ble_nus_c[slave_nr],data,ELEMENTS_IN_xMy_data_STRUCT);
-						NRF_LOG_INFO("	Error code %d \n\n\r",err_code);
+						
 						
 						if(err_code == NRF_SUCCESS )
 						{
@@ -396,7 +397,7 @@ static void send_data_task(void * arg)
 						}
 						else
 						{
-							NRF_LOG_INFO("	ack failed send to slave %d \n\n\r",slave_nr);			
+							NRF_LOG_INFO("	ack failed send to slave %d with error: 0x%x \n\n\r",slave_nr,err_code);			
 						}	
 					}else
 					{
@@ -470,14 +471,17 @@ void print_data(void)
 				
 				for(int i=0; i<=6;i++)
 				{	
-					NRF_LOG_INFO("	Type: 	  %c\n\r",slaves->pMy_datas[i]->type);
-					NRF_LOG_INFO("	Address:	  %d\n\r",slaves->pMy_datas[i]->address);
-					NRF_LOG_INFO("	ack:		  %d\n\r",slaves->pMy_datas[i]->ack);
-					NRF_LOG_INFO("	state:	  %d\n\r",slaves->pMy_datas[i]->state);
-					NRF_LOG_INFO("	Wanted_temp:  %d\n\r",slaves->pMy_datas[i]->wanted_temp);
-					NRF_LOG_INFO("	Current_temp: %d\n\r",slaves->pMy_datas[i]->current_temp);
-					NRF_LOG_INFO("	Priority:	  %d\n\r",slaves->pMy_datas[i]->priority);
-					NRF_LOG_INFO("	Max_power:	  %d\n\n\r",slaves->pMy_datas[i]->max_power);
+					if('0' != slaves->pMy_datas[i]->type)
+					{
+						NRF_LOG_INFO("	Type: 	  %c\n\r",slaves->pMy_datas[i]->type);
+						NRF_LOG_INFO("	Address:	  %d\n\r",slaves->pMy_datas[i]->address);
+						NRF_LOG_INFO("	ack:		  %d\n\r",slaves->pMy_datas[i]->ack);
+						NRF_LOG_INFO("	state:	  %d\n\r",slaves->pMy_datas[i]->state);
+						NRF_LOG_INFO("	Wanted_temp:  %d\n\r",slaves->pMy_datas[i]->wanted_temp);
+						NRF_LOG_INFO("	Current_temp: %d\n\r",slaves->pMy_datas[i]->current_temp);
+						NRF_LOG_INFO("	Priority:	  %d\n\r",slaves->pMy_datas[i]->priority);
+						NRF_LOG_INFO("	Max_power:	  %d\n\n\r",slaves->pMy_datas[i]->max_power);
+					}
 				} 
 			}
 	 }
@@ -498,14 +502,14 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 {
     uint32_t err_code;
 		struct My_data_pointers *slaves;
-		static uint8_t slave_nr;
-		slave_nr = curr_connection;
-	
+		static uint16_t slave_nr;
+		slave_nr = 	p_ble_nus_c->conn_handle;	
+		
+
+
 			if(0 != data_struct  )
 			{
-				NRF_LOG_INFO("\tRecieved data on nus_C got the data struct \r\n");	
-				NRF_LOG_INFO("\tslaves address in nus_c %p	\r\n", (uint32_t )slaves);
-							
+				
 				if(xQueuePeek(data_struct, &(slaves), ( TickType_t ) 10 ))
 				{
 					// slaves now points to the struct xMy_data_pointers variable posted
@@ -513,7 +517,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 				}
 				else NRF_LOG_INFO("\tFailed to receive data_struct msg in NUS \n\r");
 			}
-
+		
 
     switch (p_ble_nus_evt->evt_type)
     {
@@ -527,7 +531,8 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
             break;
 
         case BLE_NUS_C_EVT_NUS_RX_EVT:
-					
+				
+
 							NRF_LOG_INFO("\tRecieved data on nus_C \r\n");	
 						
 									err_code = bsp_indication_set(BSP_INDICATE_RCV_OK);
@@ -549,20 +554,21 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 											{
 													// We would not expect this call to fail because we must have
 													// obtained the semaphore to get here
+													NRF_LOG_INFO("slave_on_bin_semaphore failed to give from nus_c \r\n\n");
 											}
-											else NRF_LOG_INFO("slave_on_bin_semaphore given from nus_c \r\n\n");
+											
 										}
 											
-										
-										
-										//NRF_LOG_INFO("\t Take data_struct_mutex nus_c \n\r");
+
 										slaves->pMy_datas[slave_nr]->type = p_ble_nus_evt->p_data[0]; 
-										slaves->pMy_datas[slave_nr]->address = curr_connection;
+										slaves->pMy_datas[slave_nr]->address = slave_nr;
 										//slaves->pMy_datas[slave_nr]->ack = p_ble_nus_evt->p_data[2];
 										slaves->pMy_datas[slave_nr]->state = p_ble_nus_evt->p_data[3]; 
 										//slaves->pMy_datas[slave_nr].wanted_temp = p_ble_nus_evt->p_data[4]; 		
 										slaves->pMy_datas[slave_nr]->current_temp = p_ble_nus_evt->p_data[5]; 
+										slaves->pMy_datas[slave_nr]->priority = p_ble_nus_evt->p_data[6];
 										
+										NRF_LOG_INFO("\t Saved in data_struct[%d]\n\r",slave_nr);
 										
 										if(0 == p_ble_nus_evt->p_data[2])
 										{
@@ -593,7 +599,7 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 									{
 										//NRF_LOG_INFO("\t Take data_struct_mutex nus_c \n\r");
 										slaves->pMy_datas[slave_nr]->type = p_ble_nus_evt->p_data[0]; 
-										slaves->pMy_datas[slave_nr]->address = curr_connection;
+										slaves->pMy_datas[slave_nr]->address = slave_nr;
 										//slaves->pMy_datas[slave_nr]->ack = p_ble_nus_evt->p_data[2];
 										slaves->pMy_datas[slave_nr]->state = p_ble_nus_evt->p_data[3]; 
 										//slaves->pMy_datas[slave_nr].wanted_temp = p_ble_nus_evt->p_data[4]; 		
@@ -643,9 +649,10 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, const ble_nus_c_evt
 						break;
 					
         case BLE_NUS_C_EVT_DISCONNECTED:
-            NRF_LOG_INFO("Disconnected\r\n");
-            //scan_start();
+            NRF_LOG_INFO("Disconnected_nus\r\n");
+						
 						adv_scan_start();
+				
             break;
     }
 }
@@ -854,7 +861,7 @@ static void on_ble_central_evt(ble_evt_t * p_ble_evt)
 					
 							if ( 	xQueueSend( slave_reset, ( void * ) &(slave_nr), ( TickType_t )10 ) != pdPASS )
 							{
-										NRF_LOG_INFO("Failed to post the slave_reset message, even after 0 ticks..\r\n");
+										NRF_LOG_INFO("Failed to post the slave_reset message, even after 10 ticks..\r\n");
 							}
 					
 							
@@ -947,6 +954,7 @@ static void on_ble_peripheral_evt(ble_evt_t * p_ble_evt)
         case BLE_GAP_EVT_DISCONNECTED:
             //NRF_LOG_INFO("Phone disconnected\r\n");
             err_code = bsp_indication_set(BSP_INDICATE_IDLE);
+						adv_scan_start();
             APP_ERROR_CHECK(err_code);
             break;//BLE_GAP_EVT_DISCONNECTED
 
@@ -1045,30 +1053,32 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 			
 		}else if ((role == BLE_GAP_ROLE_CENTRAL) || (p_ble_evt->header.evt_id == BLE_GAP_EVT_ADV_REPORT))
 		{
-				if (p_ble_evt->header.evt_id != BLE_GAP_EVT_DISCONNECTED)
-        {
-            on_ble_central_evt(p_ble_evt);
-        }
+							
+
+						if (p_ble_evt->header.evt_id != BLE_GAP_EVT_DISCONNECTED)
+						{
+								on_ble_central_evt(p_ble_evt);
+						}
+						
+						bsp_btn_ble_on_ble_evt(p_ble_evt);
+						
 				
-				bsp_btn_ble_on_ble_evt(p_ble_evt);
-				
-		
-				// Make sure that an invalid connection handle are not passed since
-				// our array of modules is bound to TOTAL_LINK_COUNT.
-				if (conn_handle < TOTAL_LINK_COUNT)
-				{
-						ble_db_discovery_on_ble_evt(&m_ble_db_discovery[conn_handle], p_ble_evt);
-						ble_nus_c_on_ble_evt(&m_ble_nus_c[conn_handle], p_ble_evt);
-				}
-				
-				//ble_nus_on_ble_evt(&m_nus, p_ble_evt);
-				
-				if (p_ble_evt->header.evt_id == BLE_GAP_EVT_DISCONNECTED)
-        {
-            on_ble_central_evt(p_ble_evt);
-        }
-			
+						// Make sure that an invalid connection handle are not passed since
+						// our array of modules is bound to TOTAL_LINK_COUNT.
+						if (conn_handle < TOTAL_LINK_COUNT)
+						{
+								ble_db_discovery_on_ble_evt(&m_ble_db_discovery[conn_handle], p_ble_evt);
+								ble_nus_c_on_ble_evt(&m_ble_nus_c[conn_handle], p_ble_evt);
+						}
+						
+						//ble_nus_on_ble_evt(&m_nus, p_ble_evt);
+						
+						if (p_ble_evt->header.evt_id == BLE_GAP_EVT_DISCONNECTED)
+						{
+								on_ble_central_evt(p_ble_evt);
+						}
 		}
+		
 }
 
 
@@ -1168,8 +1178,7 @@ void bsp_event_handler(bsp_event_t event)
 				break;
 				
 				case BSP_EVENT_KEY_3:
-					NRF_LOG_INFO("Starting searching\r\n");
-					UNUSED_VARIABLE(xSemaphoreGiveFromISR(uart_search, NULL));
+				
 				break;
 			
         default:
@@ -1327,13 +1336,19 @@ static uint8_t find_highest_priority(void)
 }
 
 
+/**@brief Function for turning on the slave. .
+ *
+ * @details The state of the slave with highest priority is turned to 100 if its allowed to.
+ *
+ * 
+ */
 static void slave_on(void)
 {
 	
-		struct My_data_pointers *slaves;	
-		struct limits *p_limits;
+		static struct My_data_pointers *slaves;	
+		static struct limits *p_limits;
 		static uint32_t power;
-		uint8_t slave_nr; 
+		static uint8_t slave_nr; 
 		uint32_t consume_diff;
 		bool slaves_still_off = false;
 
@@ -1398,7 +1413,11 @@ static void slave_on(void)
 								}
 								
 								slaves->pMy_datas[slave_nr]->ack = 0; 
-								xQueueSend( slave_nr_send_data, ( void * ) &slave_nr, ( TickType_t ) 100 );
+								
+								if(xQueueSend( slave_nr_send_data, ( void * ) &slave_nr, ( TickType_t ) 100 )!= pdTRUE)
+								{
+									NRF_LOG_INFO("\tFailed to send slave_nr_send_data from slave_on \n\r");
+								}
 								if( xSemaphoreGive( data_struct_mutex ) != pdTRUE )
 								{
 										// We would not expect this call to fail because we must have obtained the semaphore to get here.					
@@ -1414,7 +1433,7 @@ static void slave_on(void)
 		
 		for(int i =0; i<CENTRAL_LINK_COUNT-1;i++)
 		{
-			if(slaves->pMy_datas[i]->state < 100)
+			if(slaves->pMy_datas[i]->state < 100 && '0' != slaves->pMy_datas[i]->type )
 			{
 					slaves_still_off = true;
 			}
@@ -1429,7 +1448,7 @@ static void slave_on(void)
 }
 
 
-/**@brief 
+/**@brief  A slave has been off for a given time.
  *
  * @details 
  *
@@ -1461,7 +1480,7 @@ static void controller_task (void * arg)
 		static uint32_t power;
 		static uint8_t slave_nr;
 		static uint8_t slave_nr_clear;
-		static uint8_t lowest_priority_to_turn_off;
+		static uint8_t lowest_priority_to_turn_off = 30;
 		
 	
   	static struct My_data_pointers *slaves;	
@@ -1474,22 +1493,24 @@ static void controller_task (void * arg)
 		p_limits->normal_max_consume_limit = 4000;
 		p_limits->max_consume_limit = 7000;
 
+		 static struct aMy_data empty_struct;
+		 
+                       empty_struct.type = '0';
+                       empty_struct.address =0;
+                       empty_struct.ack =0;                       
+											 empty_struct.current_temp = 0;
+                       empty_struct.wanted_temp =0;
+                       empty_struct.state =0;
+                       empty_struct.priority= 0;
+                       empty_struct.max_power =1;
 	
-		static struct aMy_data empty_struct;
-			empty_struct.type = '0';
-			empty_struct.address =0;
-			empty_struct.ack =0;
-			empty_struct.current_temp =0;
-			empty_struct.wanted_temp =0;
-			empty_struct.state =0;
-			empty_struct.priority= 0;
-			empty_struct.max_power =1;
-	
+		
 		for(int i =0; i<CENTRAL_LINK_COUNT;i++)
 		{
 			// Makes sure struct is empty
 			xMy_datas[i]= empty_struct;
-			slaves->pMy_datas[i] = &xMy_datas[i];
+			slaves->pMy_datas[i]= &xMy_datas[i];
+
 		}
 	
 		if ( 	xQueueSend( data_struct, ( void * ) &(slaves),portMAX_DELAY ) != pdPASS )
@@ -1509,25 +1530,32 @@ static void controller_task (void * arg)
 	while(1)
 	{
 		
-				if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 0 )) == pdTRUE)
-				{
-					if(xQueueReceive(slave_reset, &(slave_nr_clear), ( TickType_t ) 0 ))
-					{
-						slaves->pMy_datas[slave_nr_clear] = &empty_struct;
-					}
-					if( xSemaphoreGive( data_struct_mutex ) != pdTRUE )
-					{
-										// We would not expect this call to fail because we must have
-										// obtained the semaphore to get here.
-					}
-				}
+				
 
 				if(xSemaphoreTake(power_received_controller,portMAX_DELAY))
 				{
 
 					if(xQueuePeek(power_msg_queue, &(power), ( TickType_t ) 10 ) )
 					{
-							
+						
+						if(xQueueReceive(slave_reset, &(slave_nr_clear), ( TickType_t ) 0 ))
+							{
+								
+									if(xSemaphoreTake(data_struct_mutex, portMAX_DELAY  ) == pdTRUE)
+									{
+												xMy_datas[slave_nr_clear]= empty_struct;
+												slaves->pMy_datas[slave_nr_clear]= &xMy_datas[slave_nr_clear];									
+												NRF_LOG_INFO("\tReset slave_data[%d] \r\n",slave_nr_clear);
+										
+										if( xSemaphoreGive( data_struct_mutex ) != pdTRUE )
+										{
+																// We would not expect this call to fail because we must have
+																// obtained the semaphore to get here.
+										}
+									}	
+							}
+					
+						
 						print_data();
 						if(xSemaphoreTake(slave_on_bin_semaphore, (( TickType_t ) 0 )) == pdTRUE)
 						{
@@ -1550,7 +1578,7 @@ static void controller_task (void * arg)
 						
 						lowest_priority_to_turn_off =19;
 						
-						if(((power > p_limits->preferred_consume_limit )||( 16 <= hour && 19 > hour )||( 6 <= hour && 8 > hour))&&( power > 0)) // last bit power > 0 is for further development with positive cunsumption
+						if(((power > p_limits->preferred_consume_limit )||( 17 <= hour && 20 > hour )||( 7 <= hour && 10 > hour))&&( power > 0)) // last bit power > 0 is for further development with positive cunsumption
 						{
 							slave_nr = find_lowest_priority();
 							
@@ -1560,9 +1588,9 @@ static void controller_task (void * arg)
 									
 							}else if(power > p_limits->max_consume_limit)
 							{
-								lowest_priority_to_turn_off = 1;
+								lowest_priority_to_turn_off = 0;
 							}
-							//NRF_LOG_INFO("Lowest priority to turn off %d \r\n",lowest_priority_to_turn_off);
+							NRF_LOG_INFO("Lowest priority to turn off %d slave_nr; %d  \r\n",lowest_priority_to_turn_off,slave_nr);
 							if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 )) == pdTRUE)
 							{
 								
@@ -1615,7 +1643,11 @@ static void controller_task (void * arg)
 										APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
 									}
 									
-								xQueueSend( slave_nr_send_data, ( void * ) &slave_nr, ( TickType_t ) 10 );	
+								if(xQueueSend( slave_nr_send_data, ( void * ) &slave_nr, ( TickType_t ) 10 )!= pdTRUE)
+								{
+									NRF_LOG_INFO("Can not receive slave_nr_send_data in slave_on \r\n");											
+								}
+									
 								}
 								if( xSemaphoreGive( data_struct_mutex ) != pdTRUE )
 								{
@@ -1696,7 +1728,10 @@ static void update_clock(void)
 		}	
 		
 		NRF_LOG_INFO("The time is: %02d:%02d \r\n",hour,minutes);
-		xQueueSendFromISR( clock_hour, ( void * ) &hour, NULL );
+		if(xQueueSendFromISR( clock_hour, ( void * ) &hour, NULL )!= pdTRUE)
+		{
+			NRF_LOG_INFO("Failed to send clock_hour from update_clock\r\n");
+		}
 	}			
 }
 
@@ -1719,7 +1754,10 @@ static void ack_timer_handler(void * p_context)
 	{
 		if(1 == (bits & (1 << i)))						//if(true == waiting_ack[i])(i);
 		{
-			xQueueSend( slave_nr_send_data, ( void * ) &i, ( TickType_t ) 10 );
+			if(xQueueSendFromISR( slave_nr_send_data, ( void * ) &i, NULL ))
+			{
+					NRF_LOG_INFO("	Failed to send slave_nr_send_data from ack_timer    \r\n");
+			}
 			NRF_LOG_INFO("	ACK not received, resending data t slave %d  \r\n",i);
 		}
 	}
@@ -2265,7 +2303,7 @@ static void ble_stack_thread(void * arg)
 		
 		// Start scanning for peripherals and initiate connection
 		// with devices that advertise NUS UUID.
-		adv_scan_start();
+//		adv_scan_start();
 		
  
 
@@ -2573,6 +2611,8 @@ static void uart_search_thread(void * arg)
 				for(uint8_t i=0; i<my_adr_struct.number_of_adrs; i++ )
 					NRF_LOG_INFO("Sender adr nr: %i, og det sendes %i adrs.\r\n", my_adr_struct.adr_array[i], my_adr_struct.number_of_adrs); //Bare for å sjekke at adresser blir sendt. 
 				
+				adv_scan_start();
+				
 				adr_nr=0;
 				m_uart_event_states = WAITING_STATE;
 				
@@ -2695,6 +2735,12 @@ int main(void)
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
     }
 
+			//Init a mutex for the ble Nus 
+		ble_nus_mutex = xSemaphoreCreateMutex();
+		if (NULL == ble_nus_mutex)
+    {
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
 		//Init a mutex for the uart data module/thread. 
 		uart_mutex_tx = xSemaphoreCreateMutex();
 		if (NULL == uart_mutex_tx)
@@ -2740,7 +2786,7 @@ int main(void)
 		
 		
 		// Create Queues 
-		slave_reset= xQueueCreate (1, sizeof (uint8_t));
+		slave_reset= xQueueCreate (10, sizeof (uint8_t));
 		if (NULL == slave_reset)
     {
         APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
