@@ -63,7 +63,7 @@
 
 
 
-#define  SLAVE_OFF_INTERVAL      60000	//900000                             /**< Turn slave on after 15min (ms). */
+#define  SLAVE_OFF_INTERVAL      300000	//900000                             /**< Turn slave on after 5min (ms). */
 
 #define IS_SRVC_CHANGED_CHARACT_PRESENT  1                      /**< Include the Service Changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
 #define APP_FEATURE_NOT_SUPPORTED       BLE_GATT_STATUS_ATTERR_APP_BEGIN + 2        /**< Reply when unsupported features are requested. */
@@ -475,7 +475,7 @@ void print_data(void)
 					{
 						NRF_LOG_INFO("	Type: 	  %c\n\r",slaves->pMy_datas[i]->type);
 						NRF_LOG_INFO("	Address:	  %d\n\r",slaves->pMy_datas[i]->address);
-						NRF_LOG_INFO("	ack:		  %d\n\r",slaves->pMy_datas[i]->ack);
+						//NRF_LOG_INFO("	ack:		  %d\n\r",slaves->pMy_datas[i]->ack);
 						NRF_LOG_INFO("	state:	  %d\n\r",slaves->pMy_datas[i]->state);
 						NRF_LOG_INFO("	Wanted_temp:  %d\n\r",slaves->pMy_datas[i]->wanted_temp);
 						NRF_LOG_INFO("	Current_temp: %d\n\r",slaves->pMy_datas[i]->current_temp);
@@ -1245,6 +1245,7 @@ static uint8_t find_lowest_priority(void)
 {
 	struct My_data_pointers *slaves;	
 	int8_t slave_lowest_priority =-1;
+	int8_t slave_lowest_priority_to_return = -1;
 	int8_t lowest_diff =100;
 	int8_t temp_diff;
 	
@@ -1265,7 +1266,7 @@ static uint8_t find_lowest_priority(void)
 					if(slaves->pMy_datas[i]->priority > slave_lowest_priority)
 					{
 						slave_lowest_priority = slaves->pMy_datas[i]->priority;
-						slave_lowest_priority = i;
+						slave_lowest_priority_to_return = i;
 						
 					}			
 					else if(slaves->pMy_datas[i]->priority == slave_lowest_priority)
@@ -1275,19 +1276,19 @@ static uint8_t find_lowest_priority(void)
 						if(temp_diff < lowest_diff)
 						{
 							lowest_diff = temp_diff;
-							slave_lowest_priority = i;
+							slave_lowest_priority_to_return = i;
 						}
 					}
 				}
 			}
 		}
 	}
-	if(-1 == slave_lowest_priority)
+	if(-1 == slave_lowest_priority_to_return)
 	{
-			slave_lowest_priority = 0xFF;
+			slave_lowest_priority_to_return = 0xFF;
 		//Can not find any slaves in active modus
 	}
-	return slave_lowest_priority;
+	return slave_lowest_priority_to_return;
 }
 
 
@@ -1590,7 +1591,12 @@ static void controller_task (void * arg)
 							{
 								lowest_priority_to_turn_off = 0;
 							}
-							NRF_LOG_INFO("Lowest priority to turn off %d slave_nr; %d  \r\n",lowest_priority_to_turn_off,slave_nr);
+							
+							if(255!=lowest_priority_to_turn_off)
+							{
+								NRF_LOG_INFO("Lowest priority to turn off %d slave_nr; %d  \r\n",lowest_priority_to_turn_off,slave_nr);
+							}
+							
 							if(xSemaphoreTake(data_struct_mutex, (( TickType_t ) 10 )) == pdTRUE)
 							{
 								

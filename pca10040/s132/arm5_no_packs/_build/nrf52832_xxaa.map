@@ -5,10 +5,13 @@ Component: ARM Compiler 5.06 update 2 (build 183) Tool: armlink [4d35b7]
 Section Cross References
 
     main.o(i.ack_timer_handler) refers to event_groups.o(i.xEventGroupClearBits) for xEventGroupClearBits
-    main.o(i.ack_timer_handler) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
+    main.o(i.ack_timer_handler) refers to queue.o(i.xQueueGenericSendFromISR) for xQueueGenericSendFromISR
+    main.o(i.ack_timer_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
+    main.o(i.ack_timer_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
     main.o(i.ack_timer_handler) refers to main.o(.data) for .data
+    main.o(i.ack_timer_handler) refers to main.o(.conststring) for .conststring
     main.o(i.adv_scan_start) refers to fstorage.o(i.fs_queued_op_count_get) for fs_queued_op_count_get
-    main.o(i.adv_scan_start) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
+    main.o(i.adv_scan_start) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
     main.o(i.adv_scan_start) refers to main.o(i.scan_start) for scan_start
     main.o(i.adv_scan_start) refers to boards.o(i.bsp_board_led_on) for bsp_board_led_on
     main.o(i.adv_scan_start) refers to ble_advertising.o(i.ble_advertising_start) for ble_advertising_start
@@ -32,17 +35,17 @@ Section Cross References
     main.o(i.ble_evt_dispatch) refers to main.o(.bss) for .bss
     main.o(i.ble_new_event_handler) refers to queue.o(i.xQueueGiveFromISR) for xQueueGiveFromISR
     main.o(i.ble_new_event_handler) refers to main.o(.data) for .data
+    main.o(i.ble_nus_c_evt_handler) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
+    main.o(i.ble_nus_c_evt_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
+    main.o(i.ble_nus_c_evt_handler) refers to main.o(i.adv_scan_start) for adv_scan_start
     main.o(i.ble_nus_c_evt_handler) refers to ble_nus_c.o(i.ble_nus_c_handles_assign) for ble_nus_c_handles_assign
     main.o(i.ble_nus_c_evt_handler) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
     main.o(i.ble_nus_c_evt_handler) refers to ble_nus_c.o(i.ble_nus_c_rx_notif_enable) for ble_nus_c_rx_notif_enable
-    main.o(i.ble_nus_c_evt_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
-    main.o(i.ble_nus_c_evt_handler) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
     main.o(i.ble_nus_c_evt_handler) refers to bsp.o(i.bsp_indication_set) for bsp_indication_set
     main.o(i.ble_nus_c_evt_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
     main.o(i.ble_nus_c_evt_handler) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
     main.o(i.ble_nus_c_evt_handler) refers to app_timer_freertos.o(i.app_timer_stop) for app_timer_stop
     main.o(i.ble_nus_c_evt_handler) refers to event_groups.o(i.xEventGroupClearBits) for xEventGroupClearBits
-    main.o(i.ble_nus_c_evt_handler) refers to main.o(i.scan_start) for scan_start
     main.o(i.ble_nus_c_evt_handler) refers to main.o(.data) for .data
     main.o(i.ble_nus_c_evt_handler) refers to main.o(.conststring) for .conststring
     main.o(i.ble_nus_c_evt_handler) refers to main.o(.constdata) for .constdata
@@ -75,7 +78,6 @@ Section Cross References
     main.o(i.ble_stack_thread) refers to peer_manager.o(i.pm_peers_delete) for pm_peers_delete
     main.o(i.ble_stack_thread) refers to peer_manager.o(i.pm_register) for pm_register
     main.o(i.ble_stack_thread) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
-    main.o(i.ble_stack_thread) refers to main.o(i.adv_scan_start) for adv_scan_start
     main.o(i.ble_stack_thread) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
     main.o(i.ble_stack_thread) refers to softdevice_handler.o(i.intern_softdevice_events_execute) for intern_softdevice_events_execute
     main.o(i.ble_stack_thread) refers to main.o(.bss) for .bss
@@ -91,17 +93,21 @@ Section Cross References
     main.o(i.ble_stack_thread) refers to main.o(i.conn_params_error_handler) for conn_params_error_handler
     main.o(i.ble_stack_thread) refers to main.o(i.pm_evt_handler) for pm_evt_handler
     main.o(i.bsp_event_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
-    main.o(i.bsp_event_handler) refers to ble_advertising.o(i.ble_advertising_start) for ble_advertising_start
-    main.o(i.bsp_event_handler) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
     main.o(i.bsp_event_handler) refers to main.o(i.sleep_mode_enter) for sleep_mode_enter
+    main.o(i.bsp_event_handler) refers to heap_1.o(i.xPortGetFreeHeapSize) for xPortGetFreeHeapSize
+    main.o(i.bsp_event_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
+    main.o(i.bsp_event_handler) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
+    main.o(i.bsp_event_handler) refers to ble_advertising.o(i.ble_advertising_start) for ble_advertising_start
+    main.o(i.bsp_event_handler) refers to main.o(.bss) for .bss
     main.o(i.conn_params_error_handler) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
     main.o(i.controller_task) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
-    main.o(i.controller_task) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
+    main.o(i.controller_task) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.controller_task) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
+    main.o(i.controller_task) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
     main.o(i.controller_task) refers to main.o(i.print_data) for print_data
     main.o(i.controller_task) refers to main.o(i.slave_on) for slave_on
-    main.o(i.controller_task) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.controller_task) refers to main.o(i.find_lowest_priority) for find_lowest_priority
+    main.o(i.controller_task) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_2) for nrf_log_frontend_std_2
     main.o(i.controller_task) refers to dfltui.o(.text) for __aeabi_ui2d
     main.o(i.controller_task) refers to floor.o(i.__hardfp_floor) for __hardfp_floor
     main.o(i.controller_task) refers to dfixui.o(.text) for __aeabi_d2uiz
@@ -115,20 +121,14 @@ Section Cross References
     main.o(i.db_disc_handler) refers to ble_nus_c.o(i.ble_nus_c_on_db_disc_evt) for ble_nus_c_on_db_disc_evt
     main.o(i.db_disc_handler) refers to main.o(.conststring) for .conststring
     main.o(i.db_disc_handler) refers to main.o(.bss) for .bss
-    main.o(i.db_disc_handler) refers to main.o(.data) for .data
     main.o(i.find_highest_priority) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
-    main.o(i.find_highest_priority) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.find_highest_priority) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
     main.o(i.find_highest_priority) refers to main.o(.data) for .data
     main.o(i.find_lowest_priority) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
-    main.o(i.find_lowest_priority) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.find_lowest_priority) refers to main.o(.data) for .data
     main.o(i.logger_thread) refers to nrf_log_frontend.o(i.nrf_log_frontend_dequeue) for nrf_log_frontend_dequeue
     main.o(i.logger_thread) refers to tasks.o(i.vTaskSuspend) for vTaskSuspend
-    main.o(i.m_bus_timer_receiver_timeout) refers to queue.o(i.xQueueReceiveFromISR) for xQueueReceiveFromISR
-    main.o(i.m_bus_timer_receiver_timeout) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
-    main.o(i.m_bus_timer_receiver_timeout) refers to m_bus_receiver.o(i.m_bus_send_request) for m_bus_send_request
-    main.o(i.m_bus_timer_receiver_timeout) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
+    main.o(i.m_bus_timer_receiver_timeout) refers to queue.o(i.xQueueGiveFromISR) for xQueueGiveFromISR
     main.o(i.m_bus_timer_receiver_timeout) refers to main.o(.data) for .data
     main.o(i.main) refers to nrf_drv_clock.o(i.nrf_drv_clock_init) for nrf_drv_clock_init
     main.o(i.main) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
@@ -142,16 +142,23 @@ Section Cross References
     main.o(i.main) refers to main.o(i.m_bus_timer_receiver_timeout) for m_bus_timer_receiver_timeout
     main.o(i.main) refers to main.o(i.slave_on_timeout) for slave_on_timeout
     main.o(i.main) refers to main.o(i.ble_stack_thread) for ble_stack_thread
-    main.o(i.main) refers to main.o(i.uart_stack_thread) for uart_stack_thread
+    main.o(i.main) refers to main.o(i.uart_search_thread) for uart_search_thread
     main.o(i.main) refers to main.o(i.controller_task) for controller_task
     main.o(i.main) refers to main.o(i.send_data_task) for send_data_task
     main.o(i.main) refers to main.o(i.logger_thread) for logger_thread
+    main.o(i.nus_data_handler) refers to memseta.o(.text) for __aeabi_memclr4
     main.o(i.nus_data_handler) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
-    main.o(i.nus_data_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.nus_data_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_2) for nrf_log_frontend_std_2
+    main.o(i.nus_data_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.nus_data_handler) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
+    main.o(i.nus_data_handler) refers to printf8.o(i.__0sprintf$8) for __2sprintf
+    main.o(i.nus_data_handler) refers to strncpy.o(.text) for strncpy
+    main.o(i.nus_data_handler) refers to strlen.o(.text) for strlen
+    main.o(i.nus_data_handler) refers to ble_nus.o(i.ble_nus_string_send) for ble_nus_string_send
+    main.o(i.nus_data_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
     main.o(i.nus_data_handler) refers to main.o(.data) for .data
     main.o(i.nus_data_handler) refers to main.o(.conststring) for .conststring
+    main.o(i.nus_data_handler) refers to main.o(.bss) for .bss
     main.o(i.on_adv_evt) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.on_adv_evt) refers to bsp.o(i.bsp_indication_set) for bsp_indication_set
     main.o(i.on_adv_evt) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
@@ -167,13 +174,16 @@ Section Cross References
     main.o(i.on_ble_central_evt) refers to ble_conn_state.o(i.ble_conn_state_n_centrals) for ble_conn_state_n_centrals
     main.o(i.on_ble_central_evt) refers to main.o(i.scan_start) for scan_start
     main.o(i.on_ble_central_evt) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_2) for nrf_log_frontend_std_2
+    main.o(i.on_ble_central_evt) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
     main.o(i.on_ble_central_evt) refers to boards.o(i.bsp_board_led_off) for bsp_board_led_off
     main.o(i.on_ble_central_evt) refers to main.o(.constdata) for .constdata
     main.o(i.on_ble_central_evt) refers to main.o(.conststring) for .conststring
     main.o(i.on_ble_central_evt) refers to main.o(.bss) for .bss
-    main.o(i.on_ble_peripheral_evt) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
+    main.o(i.on_ble_central_evt) refers to main.o(.data) for .data
     main.o(i.on_ble_peripheral_evt) refers to bsp.o(i.bsp_indication_set) for bsp_indication_set
+    main.o(i.on_ble_peripheral_evt) refers to main.o(i.adv_scan_start) for adv_scan_start
     main.o(i.on_ble_peripheral_evt) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
+    main.o(i.on_ble_peripheral_evt) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.on_ble_peripheral_evt) refers to memcpya.o(.text) for __aeabi_memcpy
     main.o(i.pm_evt_handler) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.pm_evt_handler) refers to ble_conn_state.o(i.ble_conn_state_role) for ble_conn_state_role
@@ -187,35 +197,41 @@ Section Cross References
     main.o(i.print_data) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
     main.o(i.print_data) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
     main.o(i.print_data) refers to main.o(.data) for .data
-    main.o(i.scan_start) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
-    main.o(i.scan_start) refers to bsp.o(i.bsp_indication_set) for bsp_indication_set
     main.o(i.scan_start) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
+    main.o(i.scan_start) refers to bsp.o(i.bsp_indication_set) for bsp_indication_set
+    main.o(i.scan_start) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
     main.o(i.scan_start) refers to main.o(.constdata) for .constdata
+    main.o(i.scan_start) refers to main.o(.conststring) for .conststring
     main.o(i.send_data_task) refers to event_groups.o(i.xEventGroupClearBits) for xEventGroupClearBits
+    main.o(i.send_data_task) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
     main.o(i.send_data_task) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.send_data_task) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
-    main.o(i.send_data_task) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
     main.o(i.send_data_task) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
     main.o(i.send_data_task) refers to ble_nus_c.o(i.ble_nus_c_string_send) for ble_nus_c_string_send
-    main.o(i.send_data_task) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
+    main.o(i.send_data_task) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_2) for nrf_log_frontend_std_2
     main.o(i.send_data_task) refers to event_groups.o(i.xEventGroupSetBits) for xEventGroupSetBits
     main.o(i.send_data_task) refers to app_timer_freertos.o(i.app_timer_start) for app_timer_start
     main.o(i.send_data_task) refers to main.o(.data) for .data
+    main.o(i.send_data_task) refers to main.o(.conststring) for .conststring
     main.o(i.send_data_task) refers to main.o(.bss) for .bss
     main.o(i.send_data_task) refers to main.o(.constdata) for .constdata
-    main.o(i.slave_on) refers to main.o(i.find_highest_priority) for find_highest_priority
     main.o(i.slave_on) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
-    main.o(i.slave_on) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
+    main.o(i.slave_on) refers to main.o(i.find_highest_priority) for find_highest_priority
+    main.o(i.slave_on) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
     main.o(i.slave_on) refers to dfltui.o(.text) for __aeabi_ui2d
     main.o(i.slave_on) refers to floor.o(i.__hardfp_floor) for __hardfp_floor
     main.o(i.slave_on) refers to dfixui.o(.text) for __aeabi_d2uiz
     main.o(i.slave_on) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
+    main.o(i.slave_on) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.slave_on) refers to tasks.o(i.xTaskGetTickCount) for xTaskGetTickCount
     main.o(i.slave_on) refers to timers.o(i.xTimerGenericCommand) for xTimerGenericCommand
     main.o(i.slave_on) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
     main.o(i.slave_on) refers to main.o(.data) for .data
-    main.o(i.slave_on_timeout) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
+    main.o(i.slave_on) refers to main.o(.conststring) for .conststring
+    main.o(i.slave_on_timeout) refers to queue.o(i.xQueueGiveFromISR) for xQueueGiveFromISR
+    main.o(i.slave_on_timeout) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.slave_on_timeout) refers to main.o(.data) for .data
+    main.o(i.slave_on_timeout) refers to main.o(.conststring) for .conststring
     main.o(i.sleep_mode_enter) refers to bsp.o(i.bsp_indication_set) for bsp_indication_set
     main.o(i.sleep_mode_enter) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
     main.o(i.sleep_mode_enter) refers to bsp_btn_ble.o(i.bsp_btn_ble_sleep_mode_prepare) for bsp_btn_ble_sleep_mode_prepare
@@ -224,27 +240,43 @@ Section Cross References
     main.o(i.uart_event_handle) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
     main.o(i.uart_event_handle) refers to queue.o(i.xQueueGiveFromISR) for xQueueGiveFromISR
     main.o(i.uart_event_handle) refers to main.o(.data) for .data
-    main.o(i.uart_stack_thread) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
-    main.o(i.uart_stack_thread) refers to m_bus_receiver.o(i.m_bus_receiver_init) for m_bus_receiver_init
-    main.o(i.uart_stack_thread) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
-    main.o(i.uart_stack_thread) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
-    main.o(i.uart_stack_thread) refers to m_bus_receiver.o(i.m_bus_receiver_reset_application) for m_bus_receiver_reset_application
-    main.o(i.uart_stack_thread) refers to m_bus_receiver.o(i.m_bus_receiver_reset_partial_power) for m_bus_receiver_reset_partial_power
-    main.o(i.uart_stack_thread) refers to m_bus_receiver.o(i.response_from_m_bus) for response_from_m_bus
-    main.o(i.uart_stack_thread) refers to tasks.o(i.xTaskGetTickCount) for xTaskGetTickCount
-    main.o(i.uart_stack_thread) refers to timers.o(i.xTimerGenericCommand) for xTimerGenericCommand
-    main.o(i.uart_stack_thread) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
-    main.o(i.uart_stack_thread) refers to app_uart_fifo.o(i.app_uart_get) for app_uart_get
-    main.o(i.uart_stack_thread) refers to tasks.o(i.vTaskDelay) for vTaskDelay
-    main.o(i.uart_stack_thread) refers to app_uart_fifo.o(i.app_uart_flush) for app_uart_flush
-    main.o(i.uart_stack_thread) refers to m_bus_receiver.o(i.bcdtobyte) for bcdtobyte
-    main.o(i.uart_stack_thread) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
-    main.o(i.uart_stack_thread) refers to main.o(.bss) for .bss
-    main.o(i.uart_stack_thread) refers to main.o(.data) for .data
-    main.o(i.uart_stack_thread) refers to main.o(.conststring) for .conststring
+    main.o(i.uart_search_thread) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
+    main.o(i.uart_search_thread) refers to tasks.o(i.vTaskDelay) for vTaskDelay
+    main.o(i.uart_search_thread) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
+    main.o(i.uart_search_thread) refers to m_bus_receiver.o(i.m_bus_receiver_init) for m_bus_receiver_init
+    main.o(i.uart_search_thread) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
+    main.o(i.uart_search_thread) refers to m_bus_receiver.o(i.response_from_m_bus) for response_from_m_bus
+    main.o(i.uart_search_thread) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_2) for nrf_log_frontend_std_2
+    main.o(i.uart_search_thread) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
+    main.o(i.uart_search_thread) refers to tasks.o(i.xTaskGenericCreate) for xTaskGenericCreate
+    main.o(i.uart_search_thread) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
+    main.o(i.uart_search_thread) refers to main.o(i.adv_scan_start) for adv_scan_start
+    main.o(i.uart_search_thread) refers to main.o(.bss) for .bss
+    main.o(i.uart_search_thread) refers to main.o(.data) for .data
+    main.o(i.uart_search_thread) refers to main.o(.conststring) for .conststring
+    main.o(i.uart_search_thread) refers to main.o(i.uart_task) for uart_task
+    main.o(i.uart_task) refers to tasks.o(i.xTaskGetTickCount) for xTaskGetTickCount
+    main.o(i.uart_task) refers to timers.o(i.xTimerGenericCommand) for xTimerGenericCommand
+    main.o(i.uart_task) refers to app_error.o(i.app_error_handler_bare) for app_error_handler_bare
+    main.o(i.uart_task) refers to queue.o(i.xQueueGenericReceive) for xQueueGenericReceive
+    main.o(i.uart_task) refers to app_uart_fifo.o(i.app_uart_flush) for app_uart_flush
+    main.o(i.uart_task) refers to m_bus_receiver.o(i.m_bus_send_request) for m_bus_send_request
+    main.o(i.uart_task) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
+    main.o(i.uart_task) refers to queue.o(i.xQueueGenericSend) for xQueueGenericSend
+    main.o(i.uart_task) refers to tasks.o(i.vTaskDelete) for vTaskDelete
+    main.o(i.uart_task) refers to app_uart_fifo.o(i.app_uart_get) for app_uart_get
+    main.o(i.uart_task) refers to m_bus_receiver.o(i.telegram_structure_check) for telegram_structure_check
+    main.o(i.uart_task) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_4) for nrf_log_frontend_std_4
+    main.o(i.uart_task) refers to main.o(.data) for .data
+    main.o(i.uart_task) refers to main.o(.bss) for .bss
+    main.o(i.uart_task) refers to main.o(.conststring) for .conststring
+    main.o(i.update_clock) refers to queue.o(i.xQueueReceiveFromISR) for xQueueReceiveFromISR
+    main.o(i.update_clock) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_1) for nrf_log_frontend_std_1
     main.o(i.update_clock) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_2) for nrf_log_frontend_std_2
     main.o(i.update_clock) refers to queue.o(i.xQueueGenericSendFromISR) for xQueueGenericSendFromISR
+    main.o(i.update_clock) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
     main.o(i.update_clock) refers to main.o(.data) for .data
+    main.o(i.update_clock) refers to main.o(.conststring) for .conststring
     main.o(i.vApplicationIdleHook) refers to tasks.o(i.vTaskResume) for vTaskResume
     main.o(i.vApplicationIdleHook) refers to main.o(.data) for .data
     main.o(.constdata) refers to main.o(.bss) for m_clock_timer_data
@@ -2036,6 +2068,8 @@ Section Cross References
     softdevice_handler.o(i.softdevice_handler_suspend) refers to app_util_platform.o(.bss) for nrf_nvic_state
     softdevice_handler.o(i.softdevice_handler_suspend) refers to softdevice_handler.o(.data) for .data
     softdevice_handler.o(i.softdevice_sys_evt_handler_set) refers to softdevice_handler.o(.data) for .data
+    m_bus_receiver.o(i.correct_checksum) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_5) for nrf_log_frontend_std_5
+    m_bus_receiver.o(i.correct_checksum) refers to m_bus_receiver.o(.conststring) for .conststring
     m_bus_receiver.o(i.m_bus_receiver_changing_primary_address) refers to app_uart_fifo.o(i.app_uart_flush) for app_uart_flush
     m_bus_receiver.o(i.m_bus_receiver_changing_primary_address) refers to app_uart_fifo.o(i.app_uart_put) for app_uart_put
     m_bus_receiver.o(i.m_bus_receiver_init) refers to app_uart_fifo.o(i.app_uart_flush) for app_uart_flush
@@ -2050,6 +2084,13 @@ Section Cross References
     m_bus_receiver.o(i.response_from_m_bus) refers to app_uart_fifo.o(i.app_uart_get) for app_uart_get
     m_bus_receiver.o(i.response_from_m_bus) refers to app_uart_fifo.o(i.app_uart_flush) for app_uart_flush
     m_bus_receiver.o(i.response_from_m_bus) refers to m_bus_receiver.o(.data) for .data
+    m_bus_receiver.o(i.telegram_structure_response) refers to app_uart_fifo.o(i.app_uart_get) for app_uart_get
+    m_bus_receiver.o(i.telegram_structure_response) refers to m_bus_receiver.o(i.telegram_structure_check) for telegram_structure_check
+    m_bus_receiver.o(i.telegram_structure_response) refers to nrf_log_frontend.o(i.nrf_log_frontend_std_0) for nrf_log_frontend_std_0
+    m_bus_receiver.o(i.telegram_structure_response) refers to m_bus_receiver.o(i.correct_checksum) for correct_checksum
+    m_bus_receiver.o(i.telegram_structure_response) refers to m_bus_receiver.o(i.bcdtobyte) for bcdtobyte
+    m_bus_receiver.o(i.telegram_structure_response) refers to m_bus_receiver.o(.bss) for .bss
+    m_bus_receiver.o(i.telegram_structure_response) refers to m_bus_receiver.o(.data) for .data
     arm_startup_nrf52.o(RESET) refers to arm_startup_nrf52.o(STACK) for __initial_sp
     arm_startup_nrf52.o(RESET) refers to arm_startup_nrf52.o(.text) for Reset_Handler
     arm_startup_nrf52.o(RESET) refers to port.o(.emb_text) for SVC_Handler
